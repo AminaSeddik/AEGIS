@@ -1,0 +1,459 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../../ThemeContext';
+
+interface NetworkNode {
+  id: string;
+  name: string;
+  type: 'firewall' | 'router' | 'switch' | 'server' | 'device' | 'attacker';
+  status: 'online' | 'offline' | 'warning' | 'attacking';
+  ip: string;
+  zone: string;
+  x: number;
+  y: number;
+  attackType?: string;
+  count?: number;
+}
+
+const ALL_ATTACK_TYPES = [
+  { key: 'DDoS', name: 'DDoS', color: '#ef4444', icon: '⚡' },
+  { key: 'DoS', name: 'DoS', color: '#f97316', icon: '🔥' },
+  { key: 'ICMP_Flood', name: 'ICMP Flood', color: '#06b6d4', icon: '🌊' },
+  { key: 'ARP_Spoofing', name: 'ARP Spoofing', color: '#10b981', icon: '🎭' },
+  { key: 'MQTT_Attack', name: 'MQTT Attack', color: '#ec4899', icon: '📡' },
+  { key: 'Ransomware', name: 'Ransomware', color: '#8b5cf6', icon: '🔒' },
+  { key: 'Reconnaissance', name: 'Reconnaissance', color: '#6366f1', icon: '🔍' },
+  { key: 'Data_Exfiltration', name: 'Data Exfiltration', color: '#f59e0b', icon: '📤' },
+  { key: 'Benign', name: 'Benign', color: '#22c55e', icon: '✓' },
+];
+
+const NetworkTopology: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const [selectedNode, setSelectedNode] = useState<NetworkNode | null>(null);
+  const [showAttackers, setShowAttackers] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [currentAttack, setCurrentAttack] = useState<string>('None');
+  const [attackCounts, setAttackCounts] = useState<Record<string, number>>({});
+  const [activeAttacks, setActiveAttacks] = useState<Set<string>>(new Set());
+  const [isConnected, setIsConnected] = useState(false);
+  const [pingResult, setPingResult] = useState<{show: boolean; ip: string; results: string[]; status: 'pinging' | 'success' | 'failed' | null}>({show: false, ip: '', results: [], status: null});
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // Fetch attack data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/attack-counts');
+        if (response.ok) {
+          const data = await response.json();
+          setAttackCounts(data.attack_counts || {});
+        }
+      } catch (e) { /* ignore */ }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // WebSocket connection
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket('ws://localhost:8000/ws');
+        wsRef.current = ws;
+        ws.onopen = () => setIsConnected(true);
+        ws.onclose = () => {
+          setIsConnected(false);
+          setTimeout(connectWebSocket, 3000);
+        };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.attack_type) {
+              setCurrentAttack(data.attack_type);
+              const attackType = data.attack_type;
+              if (attackType !== 'Benign') {
+                setActiveAttacks(prev => new Set([...Array.from(prev), attackType]));
+                setTimeout(() => {
+                  setActiveAttacks(prev => {
+                    const newSet = new Set(Array.from(prev));
+                    newSet.delete(attackType);
+                    return newSet;
+                  });
+                }, 3000);
+              }
+            }
+          } catch (e) { /* ignore */ }
+        };
+      } catch (e) {
+        setTimeout(connectWebSocket, 3000);
+      }
+    };
+    connectWebSocket();
+    return () => wsRef.current?.close();
+  }, []);
+
+  // Handle Ping functionality
+  const handlePing = (ip: string) => {
+    setPingResult({ show: true, ip, results: [], status: 'pinging' });
+    const pingMessages: string[] = [];
+    let count = 0;
+    const interval = setInterval(() => {
+      if (count < 4) {
+        const time = Math.floor(Math.random() * 50) + 10;
+        pingMessages.push(`64 bytes from ${ip}: icmp_seq=${count + 1} ttl=64 time=${time}ms`);
+        setPingResult(prev => ({ ...prev, results: [...pingMessages] }));
+        count++;
+      } else {
+        clearInterval(interval);
+        setPingResult(prev => ({ ...prev, status: 'success', results: [...pingMessages, '', `--- ${ip} ping statistics ---`, '4 packets transmitted, 4 received, 0% packet loss'] }));
+      }
+    }, 500);
+  };
+
+  const getAttackColor = (attackType?: string) => {
+    const attack = ALL_ATTACK_TYPES.find(a => a.key === attackType);
+    return attack?.color || '#666';
+  };
+
+  const nodes: NetworkNode[] = [
+    { id: 'firewall', name: 'Firewall', type: 'firewall', status: 'online', ip: '10.0.0.1', zone: 'Core', x: 380, y: 40 },
+    { id: 'core_router', name: 'Core Router', type: 'router', status: 'online', ip: '10.0.0.2', zone: 'Core', x: 380, y: 120 },
+    { id: 'icu_switch', name: 'ICU Switch', type: 'switch', status: 'online', ip: '10.1.0.1', zone: 'ICU', x: 100, y: 220 },
+    { id: 'er_switch', name: 'ER Switch', type: 'switch', status: 'online', ip: '10.2.0.1', zone: 'ER', x: 300, y: 220 },
+    { id: 'ward_switch', name: 'Ward Switch', type: 'switch', status: 'online', ip: '10.3.0.1', zone: 'Ward', x: 500, y: 220 },
+    { id: 'or_switch', name: 'OR Switch', type: 'switch', status: 'online', ip: '10.4.0.1', zone: 'OR', x: 100, y: 420 },
+    { id: 'dc_switch', name: 'DC Switch', type: 'switch', status: 'online', ip: '10.100.0.1', zone: 'DataCenter', x: 380, y: 420 },
+    { id: 'icu_monitor', name: 'ICU Monitors', type: 'device', status: 'online', ip: '10.1.0.10-35', zone: 'ICU', x: 60, y: 320, count: 25 },
+    { id: 'er_monitor', name: 'ER Monitors', type: 'device', status: 'online', ip: '10.2.0.10-30', zone: 'ER', x: 260, y: 320, count: 20 },
+    { id: 'ward_monitor', name: 'Ward Monitors', type: 'device', status: 'online', ip: '10.3.0.10-30', zone: 'Ward', x: 460, y: 320, count: 20 },
+    { id: 'or_equipment', name: 'OR Equipment', type: 'device', status: 'online', ip: '10.4.0.10-20', zone: 'OR', x: 60, y: 520, count: 10 },
+    { id: 'servers', name: 'Servers', type: 'server', status: 'online', ip: '10.100.0.10-20', zone: 'DataCenter', x: 340, y: 520, count: 10 },
+  ];
+
+  const attackerNodes: NetworkNode[] = showAttackers ? ALL_ATTACK_TYPES
+    .filter(a => a.key !== 'Benign' && (attackCounts[a.key] || 0) > 0)
+    .slice(0, 8)
+    .map((attack, idx) => ({
+      id: `attacker_${attack.key}`,
+      name: attack.name,
+      type: 'attacker' as const,
+      status: activeAttacks.has(attack.key) ? 'attacking' as const : 'warning' as const,
+      ip: `192.168.${100 + idx}.${Math.floor(Math.random() * 254) + 1}`,
+      zone: 'Attacker',
+      x: 620 + (idx % 3) * 55,
+      y: 40 + Math.floor(idx / 3) * 55,
+      attackType: attack.key,
+      count: attackCounts[attack.key] || 0,
+    })) : [];
+
+  const allNodes = [...nodes, ...attackerNodes];
+
+  const connections = [
+    { from: 'firewall', to: 'core_router' },
+    { from: 'core_router', to: 'icu_switch' },
+    { from: 'core_router', to: 'er_switch' },
+    { from: 'core_router', to: 'ward_switch' },
+    { from: 'core_router', to: 'dc_switch' },
+    { from: 'icu_switch', to: 'or_switch' },
+    { from: 'icu_switch', to: 'icu_monitor' },
+    { from: 'er_switch', to: 'er_monitor' },
+    { from: 'ward_switch', to: 'ward_monitor' },
+    { from: 'or_switch', to: 'or_equipment' },
+    { from: 'dc_switch', to: 'servers' },
+    ...attackerNodes.map(a => ({ from: 'firewall', to: a.id, isAttack: true })),
+  ];
+
+  const totalAttacks = Object.entries(attackCounts).filter(([k]) => k !== 'Benign').reduce((sum, [, v]) => sum + v, 0);
+
+  const getNodeColor = (type: string) => {
+    switch (type) {
+      case 'firewall': return 'bg-red-600';
+      case 'router': return 'bg-purple-600';
+      case 'switch': return 'bg-blue-600';
+      case 'server': return 'bg-emerald-600';
+      case 'device': return 'bg-cyan-600';
+      default: return 'bg-gray-600';
+    }
+  };
+
+  const getNodeIcon = (type: string, attackType?: string) => {
+    if (type === 'attacker') {
+      const attack = ALL_ATTACK_TYPES.find(a => a.key === attackType);
+      return <span className="text-sm">{attack?.icon || '⚠️'}</span>;
+    }
+    switch (type) {
+      case 'firewall': return <span>🛡️</span>;
+      case 'router': return <span>🔀</span>;
+      case 'switch': return <span>🔌</span>;
+      case 'server': return <span>🖥️</span>;
+      case 'device': return <span>📟</span>;
+      default: return <span>❓</span>;
+    }
+  };
+
+  const getStatusIndicator = (status: string, type: string) => {
+    if (type === 'attacker') return 'bg-red-500 animate-pulse';
+    switch (status) {
+      case 'online': return 'bg-emerald-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'attacking': return 'bg-red-500 animate-pulse';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const textColor = isDark ? 'text-white' : 'text-slate-900';
+  const textMuted = isDark ? 'text-gray-400' : 'text-slate-600';
+  const textFaint = isDark ? 'text-gray-500' : 'text-slate-500';
+  const bgCard = isDark ? 'bg-gradient-to-br from-[#0d1424] to-[#1a1f2e]' : 'bg-white';
+  const bgMap = isDark ? 'bg-[#080c14]' : 'bg-slate-100';
+  const borderColor = isDark ? 'border-gray-800' : 'border-slate-200';
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className={`text-2xl font-bold ${textColor}`}>Network Topology</h1>
+          <p className={textMuted}>Hospital IoT Network - 85 Medical Devices</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${isConnected ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span className={`text-xs font-medium ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+              {isConnected ? 'LIVE' : 'OFFLINE'}
+            </span>
+          </div>
+          {currentAttack !== 'None' && currentAttack !== 'Benign' && (
+            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-red-500/20 animate-pulse">
+              <span className="text-xs font-medium text-red-400">🔴 {currentAttack.replace('_', ' ')}</span>
+            </div>
+          )}
+          <button onClick={() => setShowAttackers(!showAttackers)}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center space-x-2 ${showAttackers ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+            {showAttackers ? <><span>🔒</span><span>Hide Attackers</span></> : <><span>👁️</span><span>Show Attackers</span></>}
+          </button>
+          <div className={`flex items-center space-x-2 ${isDark ? 'bg-[#1a1f2e]' : 'bg-slate-200'} rounded-lg px-3 py-2`}>
+            <button onClick={() => setZoomLevel(Math.max(70, zoomLevel - 10))} className={textMuted}>−</button>
+            <span className={`text-sm w-12 text-center ${textColor}`}>{zoomLevel}%</span>
+            <button onClick={() => setZoomLevel(Math.min(130, zoomLevel + 10))} className={textMuted}>+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className={`${bgCard} rounded-xl p-4 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Total Devices</p>
+          <p className={`text-2xl font-bold ${textColor}`}>85</p>
+          <p className={`${textFaint} text-xs`}>Medical IoT</p>
+        </div>
+        <div className={`${bgCard} rounded-xl p-4 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Online</p>
+          <p className="text-2xl font-bold text-emerald-400">85</p>
+          <p className="text-emerald-500/50 text-xs">100% uptime</p>
+        </div>
+        <div className={`${bgCard} rounded-xl p-4 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Total Attacks</p>
+          <p className="text-2xl font-bold text-red-400">{totalAttacks}</p>
+          <p className="text-red-500/50 text-xs">Detected</p>
+        </div>
+        <div className={`${bgCard} rounded-xl p-4 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Attack Types</p>
+          <p className="text-2xl font-bold text-purple-400">{Object.entries(attackCounts).filter(([k, v]) => k !== 'Benign' && v > 0).length}/8</p>
+          <p className="text-purple-500/50 text-xs">Active</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Network Map */}
+        <div className={`lg:col-span-3 ${bgCard} rounded-2xl border ${borderColor} overflow-hidden`}>
+          <div className={`p-4 border-b ${borderColor} flex items-center justify-between`}>
+            <h2 className={`text-lg font-semibold ${textColor}`}>Hospital Network Map</h2>
+            <div className={`flex items-center space-x-3 text-xs ${textMuted}`}>
+              <span className="flex items-center"><span className="w-2 h-2 bg-red-600 rounded mr-1"></span>Firewall</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-purple-600 rounded mr-1"></span>Router</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-blue-600 rounded mr-1"></span>Switch</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-emerald-600 rounded mr-1"></span>Server</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-cyan-600 rounded mr-1"></span>Device</span>
+            </div>
+          </div>
+          <div className={`relative ${bgMap} overflow-auto`} style={{ height: '500px' }}>
+            <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: '850px', height: '600px' }}>
+              <svg className="absolute inset-0" style={{ width: '850px', height: '600px' }}>
+                {connections.map((conn, idx) => {
+                  const fromNode = allNodes.find(n => n.id === conn.from);
+                  const toNode = allNodes.find(n => n.id === conn.to);
+                  if (!fromNode || !toNode) return null;
+                  const isAttackLine = (conn as any).isAttack;
+                  const isActive = isAttackLine && toNode.attackType && activeAttacks.has(toNode.attackType);
+                  return (
+                    <line key={idx} x1={fromNode.x + 16} y1={fromNode.y + 16} x2={toNode.x + 16} y2={toNode.y + 16}
+                      stroke={isAttackLine ? (isActive ? '#ef4444' : '#666') : '#374151'}
+                      strokeWidth={isAttackLine ? (isActive ? 3 : 1.5) : 1.5}
+                      strokeDasharray={isAttackLine ? '5,5' : 'none'}
+                      className={isActive ? 'animate-pulse' : ''} />
+                  );
+                })}
+
+              {/* Zone Backgrounds */}
+              <div className="absolute rounded-lg border border-purple-500/30 bg-purple-500/10" style={{ left: "340px", top: "30px", width: "120px", height: "100px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-purple-400 font-semibold">CORE</span>
+              </div>
+              <div className="absolute rounded-lg border border-blue-500/30 bg-blue-500/10" style={{ left: "60px", top: "200px", width: "180px", height: "180px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-blue-400 font-semibold">ICU (25 devices)</span>
+              </div>
+              <div className="absolute rounded-lg border border-yellow-500/30 bg-yellow-500/10" style={{ left: "260px", top: "200px", width: "180px", height: "180px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-yellow-400 font-semibold">EMERGENCY ROOM (20)</span>
+              </div>
+              <div className="absolute rounded-lg border border-green-500/30 bg-green-500/10" style={{ left: "460px", top: "200px", width: "180px", height: "180px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-green-400 font-semibold">GENERAL WARD (20)</span>
+              </div>
+              <div className="absolute rounded-lg border border-cyan-500/30 bg-cyan-500/10" style={{ left: "60px", top: "400px", width: "180px", height: "180px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-cyan-400 font-semibold">OPERATING ROOM (10)</span>
+              </div>
+              <div className="absolute rounded-lg border border-orange-500/30 bg-orange-500/10" style={{ left: "340px", top: "400px", width: "200px", height: "180px" }}>
+                <span className="absolute top-1 left-2 text-[10px] text-orange-400 font-semibold">DATA CENTER (10)</span>
+              </div>
+              {/* Attacker Zone */}
+              {showAttackers && attackerNodes.length > 0 && (
+                <div className="absolute rounded-lg border border-red-500/50 bg-red-500/10 animate-pulse" style={{ left: "610px", top: "30px", width: "180px", height: "180px" }}>
+                  <span className="absolute top-1 left-2 text-[10px] text-red-400 font-semibold">⚠️ ACTIVE ATTACKS</span>
+                </div>
+              )}
+              </svg>
+              {allNodes.map((node) => {
+                const isAttacking = node.type === 'attacker' && node.attackType && activeAttacks.has(node.attackType);
+                const attackColor = node.attackType ? getAttackColor(node.attackType) : undefined;
+                return (
+                  <div key={node.id} onClick={() => setSelectedNode(node)}
+                    className={`absolute cursor-pointer transition-transform hover:scale-110 ${selectedNode?.id === node.id ? 'ring-2 ring-white ring-offset-1 rounded-lg' : ''} ${isAttacking ? 'animate-bounce' : ''}`}
+                    style={{ left: node.x, top: node.y }} title={`${node.name}${node.count ? ` (${node.count})` : ''}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg relative ${node.type === 'attacker' ? '' : getNodeColor(node.type)}`}
+                      style={node.type === 'attacker' ? { backgroundColor: attackColor } : undefined}>
+                      {getNodeIcon(node.type, node.attackType)}
+                      <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 ${getStatusIndicator(node.status, node.type)} rounded-full border-2 ${isDark ? 'border-[#080c14]' : 'border-slate-100'}`}></div>
+                      {node.count && (
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${isDark ? 'bg-gray-800 border-gray-600' : 'bg-slate-200 border-slate-400'} rounded-full flex items-center justify-center text-[8px] ${textColor} font-bold border`}>
+                          {node.count}
+                        </div>
+                      )}
+                    </div>
+                    <p className={`text-[9px] ${textMuted} text-center mt-0.5 max-w-[55px] truncate leading-tight`}>{node.name}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Side Panel */}
+        <div className={`${bgCard} rounded-2xl border ${borderColor}`}>
+          <div className={`p-4 border-b ${borderColor}`}>
+            <h2 className={`text-lg font-semibold ${textColor}`}>Node Details</h2>
+          </div>
+          {selectedNode ? (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white ${selectedNode.type === 'attacker' ? '' : getNodeColor(selectedNode.type)}`}
+                  style={selectedNode.type === 'attacker' ? { backgroundColor: getAttackColor(selectedNode.attackType) } : undefined}>
+                  {getNodeIcon(selectedNode.type, selectedNode.attackType)}
+                </div>
+                <div>
+                  <h3 className={`${textColor} font-semibold text-sm`}>{selectedNode.name}</h3>
+                  <p className={`${textMuted} text-xs capitalize`}>{selectedNode.type === 'attacker' ? selectedNode.attackType?.replace('_', ' ') : selectedNode.type}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded-lg p-2`}>
+                  <p className={`${textFaint} text-xs`}>Status</p>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 ${getStatusIndicator(selectedNode.status, selectedNode.type)} rounded-full`}></div>
+                    <p className={`text-sm font-medium capitalize ${selectedNode.status === 'online' ? 'text-emerald-400' : selectedNode.status === 'attacking' || selectedNode.type === 'attacker' ? 'text-red-400' : 'text-yellow-400'}`}>
+                      {selectedNode.type === 'attacker' ? (activeAttacks.has(selectedNode.attackType || '') ? 'Attacking' : 'Idle') : selectedNode.status}
+                    </p>
+                  </div>
+                </div>
+                <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded-lg p-2`}>
+                  <p className={`${textFaint} text-xs`}>IP Address</p>
+                  <p className={`${textColor} text-sm font-mono`}>{selectedNode.ip}</p>
+                </div>
+                <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded-lg p-2`}>
+                  <p className={`${textFaint} text-xs`}>Zone</p>
+                  <p className={`${textColor} text-sm`}>{selectedNode.zone}</p>
+                </div>
+                {selectedNode.count && (
+                  <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded-lg p-2`}>
+                    <p className={`${textFaint} text-xs`}>{selectedNode.type === 'attacker' ? 'Attack Count' : 'Device Count'}</p>
+                    <p className={`${textColor} text-sm`}>{selectedNode.count}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex space-x-2 pt-2">
+                <button onClick={() => handlePing(selectedNode.ip)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors">Ping</button>
+                <button className={`flex-1 px-3 py-2 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-slate-200 hover:bg-slate-300'} ${textColor} text-xs rounded-lg transition-colors`}>Details</button>
+                {selectedNode.type === 'attacker' && (
+                  <button className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors">Block</button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 text-center">
+              <svg className={`w-12 h-12 mx-auto ${textFaint} mb-3`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className={`${textMuted} text-sm`}>Click a node to view details</p>
+            </div>
+          )}
+
+          {/* Attack Types */}
+          <div className={`p-4 border-t ${borderColor}`}>
+            <h3 className={`text-sm font-medium ${textColor} mb-3`}>Attack Types (Live)</h3>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {ALL_ATTACK_TYPES.filter(a => a.key !== 'Benign').map((attack) => {
+                const count = attackCounts[attack.key] || 0;
+                const isActive = activeAttacks.has(attack.key);
+                return (
+                  <div key={attack.key} className={`flex items-center justify-between text-xs p-1.5 rounded ${isActive ? 'bg-red-500/20 animate-pulse' : ''}`}>
+                    <div className="flex items-center space-x-2">
+                      <span>{attack.icon}</span>
+                      <span style={{ color: attack.color }}>{attack.name}</span>
+                    </div>
+                    <span className={`font-mono font-bold ${count > 0 ? 'text-red-400' : textFaint}`}>{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ping Modal */}
+      {pingResult.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setPingResult({show: false, ip: '', results: [], status: null})}>
+          <div className={`${isDark ? 'bg-[#0d1424] border-gray-700' : 'bg-white border-slate-300'} border rounded-xl p-4 w-96 shadow-2xl`} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>🖥️ Ping {pingResult.ip}</h3>
+              <button onClick={() => setPingResult({show: false, ip: '', results: [], status: null})} className="text-gray-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <div className={`${isDark ? 'bg-black' : 'bg-slate-900'} rounded-lg p-3 font-mono text-xs text-green-400 h-48 overflow-y-auto`}>
+              <p className="text-gray-500">$ ping {pingResult.ip}</p>
+              {pingResult.results.map((line: string, i: number) => (
+                <p key={i} className={line.includes('statistics') ? 'text-yellow-400' : ''}>{line}</p>
+              ))}
+              {pingResult.status === 'pinging' && <span className="animate-pulse">▋</span>}
+            </div>
+            <div className="mt-3 flex justify-between items-center">
+              <span className={`text-xs ${pingResult.status === 'success' ? 'text-green-400' : pingResult.status === 'pinging' ? 'text-yellow-400' : 'text-gray-400'}`}>
+                {pingResult.status === 'success' ? '✓ Complete' : pingResult.status === 'pinging' ? '⏳ Pinging...' : ''}
+              </span>
+              <button onClick={() => setPingResult({show: false, ip: '', results: [], status: null})} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NetworkTopology;

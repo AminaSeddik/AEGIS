@@ -1,0 +1,30 @@
+{
+  "approach": "Hold-Out Class Validation",
+  "training_dataset": "CICIoMT2024",
+  "validation_dataset": "CICIoT2023",
+  "native_features": 39,
+  "known_classes": [
+    "Benign",
+    "DDoS",
+    "DoS",
+    "ICMP_Flood",
+    "Reconnaissance"
+  ],
+  "zeroday_classes": [
+    "MQTT_Attack",
+    "ARP_Spoofing"
+  ],
+  "rf_accuracy": 0.9632171653228493,
+  "cnn_lstm_accuracy": 0.9473356877901424,
+  "ensemble_accuracy": 0.9622398436285289,
+  "threshold": 0.37769440033789137,
+  "within_domain_zd": {
+    "MQTT_Attack": 100.0,
+    "ARP_Spoofing": 100.0
+  },
+  "cross_domain_zd_overall": 99.55240892187123,
+  "benign_false_positive": 5.541981341625944,
+  "rf_train_time": 5.91087007522583,
+  "cnn_lstm_train_time": 423.5350534915924,
+  "ae_train_time": 89.88575959205627
+}

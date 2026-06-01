@@ -1,0 +1,594 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../../ThemeContext';
+
+interface NetworkNode {
+  id: string;
+  name: string;
+  type: 'firewall' | 'router' | 'switch' | 'server' | 'device' | 'attacker' | 'ids' | 'wifi' | 'gateway';
+  status: 'online' | 'offline' | 'warning' | 'attacking';
+  ip: string;
+  zone: string;
+  x: number;
+  y: number;
+  attackType?: string;
+  count?: number;
+}
+
+const ALL_ATTACK_TYPES = [
+  { key: 'DDoS', name: 'DDoS', color: '#ef4444', icon: '⚡' },
+  { key: 'DoS', name: 'DoS', color: '#f97316', icon: '🔥' },
+  { key: 'ICMP_Flood', name: 'ICMP Flood', color: '#06b6d4', icon: '🌊' },
+  { key: 'ARP_Spoofing', name: 'ARP Spoofing', color: '#10b981', icon: '🎭' },
+  { key: 'MQTT_Attack', name: 'MQTT Attack', color: '#ec4899', icon: '📡' },
+  { key: 'Ransomware', name: 'Ransomware', color: '#8b5cf6', icon: '🔒' },
+  { key: 'Reconnaissance', name: 'Reconnaissance', color: '#6366f1', icon: '🔍' },
+  { key: 'Data_Exfiltration', name: 'Data Exfiltration', color: '#f59e0b', icon: '📤' },
+  { key: 'Benign', name: 'Benign', color: '#22c55e', icon: '✓' },
+];
+
+const NetworkTopology: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const [selectedNode, setSelectedNode] = useState<NetworkNode | null>(null);
+  const [showAttackers, setShowAttackers] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(85);
+  const [currentAttack, setCurrentAttack] = useState<string>('None');
+  const [attackCounts, setAttackCounts] = useState<Record<string, number>>({});
+  const [activeAttacks, setActiveAttacks] = useState<Set<string>>(new Set());
+  const [isConnected, setIsConnected] = useState(false);
+  const [pingResult, setPingResult] = useState<{show: boolean; ip: string; results: string[]; status: 'pinging' | 'success' | 'failed' | null}>({show: false, ip: '', results: [], status: null});
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/network/attacks');
+        if (response.ok) {
+          const data = await response.json();
+          setAttackCounts(data.counts || {});
+        }
+      } catch (e) { /* ignore */ }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket('ws://localhost:8000/ws');
+        wsRef.current = ws;
+        ws.onopen = () => setIsConnected(true);
+        ws.onclose = () => {
+          setIsConnected(false);
+          setTimeout(connectWebSocket, 3000);
+        };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.attack_type) {
+              setCurrentAttack(data.attack_type);
+              const attackType = data.attack_type;
+              if (attackType !== 'Benign') {
+                setActiveAttacks(prev => new Set([...Array.from(prev), attackType]));
+                setTimeout(() => {
+                  setActiveAttacks(prev => {
+                    const newSet = new Set(Array.from(prev));
+                    newSet.delete(attackType);
+                    return newSet;
+                  });
+                }, 3000);
+              }
+            }
+          } catch (e) { /* ignore */ }
+        };
+      } catch (e) {
+        setTimeout(connectWebSocket, 3000);
+      }
+    };
+    connectWebSocket();
+    return () => wsRef.current?.close();
+  }, []);
+
+  const handlePing = (ip: string) => {
+    setPingResult({ show: true, ip, results: [], status: 'pinging' });
+    const pingMessages: string[] = [];
+    let count = 0;
+    const interval = setInterval(() => {
+      if (count < 4) {
+        const time = Math.floor(Math.random() * 50) + 10;
+        pingMessages.push(`64 bytes from ${ip}: icmp_seq=${count + 1} ttl=64 time=${time}ms`);
+        setPingResult(prev => ({ ...prev, results: [...pingMessages] }));
+        count++;
+      } else {
+        clearInterval(interval);
+        setPingResult(prev => ({ ...prev, status: 'success', results: [...pingMessages, '', `--- ${ip} ping statistics ---`, '4 packets transmitted, 4 received, 0% packet loss'] }));
+      }
+    }, 500);
+  };
+
+  const getAttackColor = (attackType?: string) => {
+    const attack = ALL_ATTACK_TYPES.find(a => a.key === attackType);
+    return attack?.color || '#666';
+  };
+
+  // ============================================
+  // FULL HOSPITAL NETWORK - ALL 85 DEVICES
+  // ============================================
+  const nodes: NetworkNode[] = [
+    // ========== INTERNET & CORE ==========
+    { id: 'internet', name: 'Internet', type: 'gateway', status: 'online', ip: 'WAN', zone: 'External', x: 500, y: 10 },
+    { id: 'firewall', name: 'Firewall', type: 'firewall', status: 'online', ip: '10.0.0.1', zone: 'Core', x: 500, y: 70 },
+    
+    // ========== SECURITY ZONE ==========
+    { id: 'ids_ips', name: 'IDS/IPS (AEGIS)', type: 'ids', status: 'online', ip: '10.0.0.5', zone: 'Security', x: 350, y: 70 },
+    { id: 'sec_switch', name: 'Security Switch', type: 'switch', status: 'online', ip: '10.0.0.6', zone: 'Security', x: 350, y: 130 },
+    { id: 'sec_monitor', name: 'SIEM Server', type: 'server', status: 'online', ip: '10.0.0.7', zone: 'Security', x: 280, y: 130 },
+    { id: 'log_server', name: 'Log Server', type: 'server', status: 'online', ip: '10.0.0.8', zone: 'Security', x: 420, y: 130 },
+    
+    // ========== CORE ROUTING ==========
+    { id: 'core_router', name: 'Core Router', type: 'router', status: 'online', ip: '10.0.0.2', zone: 'Core', x: 500, y: 180 },
+    { id: 'dist_switch1', name: 'Dist Switch 1', type: 'switch', status: 'online', ip: '10.0.0.10', zone: 'Core', x: 350, y: 240 },
+    { id: 'dist_switch2', name: 'Dist Switch 2', type: 'switch', status: 'online', ip: '10.0.0.11', zone: 'Core', x: 650, y: 240 },
+    
+    // ========== ICU DEPARTMENT - 25 Devices ==========
+    { id: 'icu_switch', name: 'ICU Switch', type: 'switch', status: 'online', ip: '10.1.0.1', zone: 'ICU', x: 100, y: 320 },
+    { id: 'icu_wifi', name: 'ICU WiFi AP', type: 'wifi', status: 'online', ip: '10.1.0.2', zone: 'ICU', x: 100, y: 380 },
+    // ICU Row 1 - Ventilators (5)
+    { id: 'vent1', name: 'Ventilator 1', type: 'device', status: 'online', ip: '10.1.0.10', zone: 'ICU', x: 20, y: 440 },
+    { id: 'vent2', name: 'Ventilator 2', type: 'device', status: 'online', ip: '10.1.0.11', zone: 'ICU', x: 60, y: 440 },
+    { id: 'vent3', name: 'Ventilator 3', type: 'device', status: 'online', ip: '10.1.0.12', zone: 'ICU', x: 100, y: 440 },
+    { id: 'vent4', name: 'Ventilator 4', type: 'device', status: 'online', ip: '10.1.0.13', zone: 'ICU', x: 140, y: 440 },
+    { id: 'vent5', name: 'Ventilator 5', type: 'device', status: 'online', ip: '10.1.0.14', zone: 'ICU', x: 180, y: 440 },
+    // ICU Row 2 - ECG Monitors (5)
+    { id: 'ecg_icu1', name: 'ECG Mon 1', type: 'device', status: 'online', ip: '10.1.0.15', zone: 'ICU', x: 20, y: 490 },
+    { id: 'ecg_icu2', name: 'ECG Mon 2', type: 'device', status: 'online', ip: '10.1.0.16', zone: 'ICU', x: 60, y: 490 },
+    { id: 'ecg_icu3', name: 'ECG Mon 3', type: 'device', status: 'online', ip: '10.1.0.17', zone: 'ICU', x: 100, y: 490 },
+    { id: 'ecg_icu4', name: 'ECG Mon 4', type: 'device', status: 'online', ip: '10.1.0.18', zone: 'ICU', x: 140, y: 490 },
+    { id: 'ecg_icu5', name: 'ECG Mon 5', type: 'device', status: 'online', ip: '10.1.0.19', zone: 'ICU', x: 180, y: 490 },
+    // ICU Row 3 - Infusion Pumps (10)
+    { id: 'pump1', name: 'Infusion 1', type: 'device', status: 'online', ip: '10.1.0.20', zone: 'ICU', x: 20, y: 540 },
+    { id: 'pump2', name: 'Infusion 2', type: 'device', status: 'online', ip: '10.1.0.21', zone: 'ICU', x: 60, y: 540 },
+    { id: 'pump3', name: 'Infusion 3', type: 'device', status: 'online', ip: '10.1.0.22', zone: 'ICU', x: 100, y: 540 },
+    { id: 'pump4', name: 'Infusion 4', type: 'device', status: 'online', ip: '10.1.0.23', zone: 'ICU', x: 140, y: 540 },
+    { id: 'pump5', name: 'Infusion 5', type: 'device', status: 'online', ip: '10.1.0.24', zone: 'ICU', x: 180, y: 540 },
+    { id: 'pump6', name: 'Infusion 6', type: 'device', status: 'online', ip: '10.1.0.25', zone: 'ICU', x: 20, y: 590 },
+    { id: 'pump7', name: 'Infusion 7', type: 'device', status: 'online', ip: '10.1.0.26', zone: 'ICU', x: 60, y: 590 },
+    { id: 'pump8', name: 'Infusion 8', type: 'device', status: 'online', ip: '10.1.0.27', zone: 'ICU', x: 100, y: 590 },
+    { id: 'pump9', name: 'Infusion 9', type: 'device', status: 'online', ip: '10.1.0.28', zone: 'ICU', x: 140, y: 590 },
+    { id: 'pump10', name: 'Infusion 10', type: 'device', status: 'online', ip: '10.1.0.29', zone: 'ICU', x: 180, y: 590 },
+    // ICU Row 4 - Patient Monitors (5)
+    { id: 'pat_icu1', name: 'Patient Mon 1', type: 'device', status: 'online', ip: '10.1.0.30', zone: 'ICU', x: 20, y: 640 },
+    { id: 'pat_icu2', name: 'Patient Mon 2', type: 'device', status: 'online', ip: '10.1.0.31', zone: 'ICU', x: 60, y: 640 },
+    { id: 'pat_icu3', name: 'Patient Mon 3', type: 'device', status: 'online', ip: '10.1.0.32', zone: 'ICU', x: 100, y: 640 },
+    { id: 'pat_icu4', name: 'Patient Mon 4', type: 'device', status: 'online', ip: '10.1.0.33', zone: 'ICU', x: 140, y: 640 },
+    { id: 'pat_icu5', name: 'Patient Mon 5', type: 'device', status: 'online', ip: '10.1.0.34', zone: 'ICU', x: 180, y: 640 },
+    
+    // ========== EMERGENCY ROOM - 20 Devices ==========
+    { id: 'er_switch', name: 'ER Switch', type: 'switch', status: 'online', ip: '10.2.0.1', zone: 'ER', x: 330, y: 320 },
+    { id: 'er_wifi', name: 'ER WiFi AP', type: 'wifi', status: 'online', ip: '10.2.0.2', zone: 'ER', x: 330, y: 380 },
+    // ER Row 1 - Defibrillators (4)
+    { id: 'defib1', name: 'Defib 1', type: 'device', status: 'online', ip: '10.2.0.10', zone: 'ER', x: 250, y: 440 },
+    { id: 'defib2', name: 'Defib 2', type: 'device', status: 'online', ip: '10.2.0.11', zone: 'ER', x: 290, y: 440 },
+    { id: 'defib3', name: 'Defib 3', type: 'device', status: 'online', ip: '10.2.0.12', zone: 'ER', x: 330, y: 440 },
+    { id: 'defib4', name: 'Defib 4', type: 'device', status: 'online', ip: '10.2.0.13', zone: 'ER', x: 370, y: 440 },
+    // ER Row 2 - ECG Monitors (4)
+    { id: 'ecg_er1', name: 'ECG ER 1', type: 'device', status: 'online', ip: '10.2.0.14', zone: 'ER', x: 250, y: 490 },
+    { id: 'ecg_er2', name: 'ECG ER 2', type: 'device', status: 'online', ip: '10.2.0.15', zone: 'ER', x: 290, y: 490 },
+    { id: 'ecg_er3', name: 'ECG ER 3', type: 'device', status: 'online', ip: '10.2.0.16', zone: 'ER', x: 330, y: 490 },
+    { id: 'ecg_er4', name: 'ECG ER 4', type: 'device', status: 'online', ip: '10.2.0.17', zone: 'ER', x: 370, y: 490 },
+    // ER Row 3 - Vital Signs (8)
+    { id: 'vital1', name: 'Vitals 1', type: 'device', status: 'online', ip: '10.2.0.18', zone: 'ER', x: 250, y: 540 },
+    { id: 'vital2', name: 'Vitals 2', type: 'device', status: 'online', ip: '10.2.0.19', zone: 'ER', x: 290, y: 540 },
+    { id: 'vital3', name: 'Vitals 3', type: 'device', status: 'online', ip: '10.2.0.20', zone: 'ER', x: 330, y: 540 },
+    { id: 'vital4', name: 'Vitals 4', type: 'device', status: 'online', ip: '10.2.0.21', zone: 'ER', x: 370, y: 540 },
+    { id: 'vital5', name: 'Vitals 5', type: 'device', status: 'online', ip: '10.2.0.22', zone: 'ER', x: 250, y: 590 },
+    { id: 'vital6', name: 'Vitals 6', type: 'device', status: 'online', ip: '10.2.0.23', zone: 'ER', x: 290, y: 590 },
+    { id: 'vital7', name: 'Vitals 7', type: 'device', status: 'online', ip: '10.2.0.24', zone: 'ER', x: 330, y: 590 },
+    { id: 'vital8', name: 'Vitals 8', type: 'device', status: 'online', ip: '10.2.0.25', zone: 'ER', x: 370, y: 590 },
+    // ER Row 4 - Portable X-Ray (4)
+    { id: 'xray1', name: 'X-Ray 1', type: 'device', status: 'online', ip: '10.2.0.26', zone: 'ER', x: 250, y: 640 },
+    { id: 'xray2', name: 'X-Ray 2', type: 'device', status: 'online', ip: '10.2.0.27', zone: 'ER', x: 290, y: 640 },
+    { id: 'xray3', name: 'X-Ray 3', type: 'device', status: 'online', ip: '10.2.0.28', zone: 'ER', x: 330, y: 640 },
+    { id: 'xray4', name: 'X-Ray 4', type: 'device', status: 'online', ip: '10.2.0.29', zone: 'ER', x: 370, y: 640 },
+    
+    // ========== GENERAL WARD - 20 Devices ==========
+    { id: 'ward_switch', name: 'Ward Switch', type: 'switch', status: 'online', ip: '10.3.0.1', zone: 'Ward', x: 560, y: 320 },
+    { id: 'ward_wifi', name: 'Ward WiFi AP', type: 'wifi', status: 'online', ip: '10.3.0.2', zone: 'Ward', x: 560, y: 380 },
+    // Ward Row 1 - Patient Monitors (8)
+    { id: 'pat_w1', name: 'Patient 1', type: 'device', status: 'online', ip: '10.3.0.10', zone: 'Ward', x: 480, y: 440 },
+    { id: 'pat_w2', name: 'Patient 2', type: 'device', status: 'online', ip: '10.3.0.11', zone: 'Ward', x: 520, y: 440 },
+    { id: 'pat_w3', name: 'Patient 3', type: 'device', status: 'online', ip: '10.3.0.12', zone: 'Ward', x: 560, y: 440 },
+    { id: 'pat_w4', name: 'Patient 4', type: 'device', status: 'online', ip: '10.3.0.13', zone: 'Ward', x: 600, y: 440 },
+    { id: 'pat_w5', name: 'Patient 5', type: 'device', status: 'online', ip: '10.3.0.14', zone: 'Ward', x: 480, y: 490 },
+    { id: 'pat_w6', name: 'Patient 6', type: 'device', status: 'online', ip: '10.3.0.15', zone: 'Ward', x: 520, y: 490 },
+    { id: 'pat_w7', name: 'Patient 7', type: 'device', status: 'online', ip: '10.3.0.16', zone: 'Ward', x: 560, y: 490 },
+    { id: 'pat_w8', name: 'Patient 8', type: 'device', status: 'online', ip: '10.3.0.17', zone: 'Ward', x: 600, y: 490 },
+    // Ward Row 2 - Temp Sensors (4)
+    { id: 'temp1', name: 'Temp 1', type: 'device', status: 'online', ip: '10.3.0.18', zone: 'Ward', x: 480, y: 540 },
+    { id: 'temp2', name: 'Temp 2', type: 'device', status: 'online', ip: '10.3.0.19', zone: 'Ward', x: 520, y: 540 },
+    { id: 'temp3', name: 'Temp 3', type: 'device', status: 'online', ip: '10.3.0.20', zone: 'Ward', x: 560, y: 540 },
+    { id: 'temp4', name: 'Temp 4', type: 'device', status: 'online', ip: '10.3.0.21', zone: 'Ward', x: 600, y: 540 },
+    // Ward Row 3 - Heart Rate (4)
+    { id: 'hr1', name: 'Heart 1', type: 'device', status: 'online', ip: '10.3.0.22', zone: 'Ward', x: 480, y: 590 },
+    { id: 'hr2', name: 'Heart 2', type: 'device', status: 'online', ip: '10.3.0.23', zone: 'Ward', x: 520, y: 590 },
+    { id: 'hr3', name: 'Heart 3', type: 'device', status: 'online', ip: '10.3.0.24', zone: 'Ward', x: 560, y: 590 },
+    { id: 'hr4', name: 'Heart 4', type: 'device', status: 'online', ip: '10.3.0.25', zone: 'Ward', x: 600, y: 590 },
+    // Ward Row 4 - Nurse Stations (4)
+    { id: 'nurse1', name: 'Nurse 1', type: 'device', status: 'online', ip: '10.3.0.26', zone: 'Ward', x: 480, y: 640 },
+    { id: 'nurse2', name: 'Nurse 2', type: 'device', status: 'online', ip: '10.3.0.27', zone: 'Ward', x: 520, y: 640 },
+    { id: 'nurse3', name: 'Nurse 3', type: 'device', status: 'online', ip: '10.3.0.28', zone: 'Ward', x: 560, y: 640 },
+    { id: 'nurse4', name: 'Nurse 4', type: 'device', status: 'online', ip: '10.3.0.29', zone: 'Ward', x: 600, y: 640 },
+    
+    // ========== OPERATING ROOM - 10 Devices ==========
+    { id: 'or_switch', name: 'OR Switch', type: 'switch', status: 'online', ip: '10.4.0.1', zone: 'OR', x: 790, y: 320 },
+    { id: 'or_wifi', name: 'OR WiFi AP', type: 'wifi', status: 'online', ip: '10.4.0.2', zone: 'OR', x: 790, y: 380 },
+    // OR Row 1 - Anesthesia (3)
+    { id: 'anes1', name: 'Anesth 1', type: 'device', status: 'online', ip: '10.4.0.10', zone: 'OR', x: 720, y: 440 },
+    { id: 'anes2', name: 'Anesth 2', type: 'device', status: 'online', ip: '10.4.0.11', zone: 'OR', x: 760, y: 440 },
+    { id: 'anes3', name: 'Anesth 3', type: 'device', status: 'online', ip: '10.4.0.12', zone: 'OR', x: 800, y: 440 },
+    // OR Row 2 - Surgical Equipment (4)
+    { id: 'surg1', name: 'Surgical 1', type: 'device', status: 'online', ip: '10.4.0.13', zone: 'OR', x: 720, y: 490 },
+    { id: 'surg2', name: 'Surgical 2', type: 'device', status: 'online', ip: '10.4.0.14', zone: 'OR', x: 760, y: 490 },
+    { id: 'surg3', name: 'Surgical 3', type: 'device', status: 'online', ip: '10.4.0.15', zone: 'OR', x: 800, y: 490 },
+    { id: 'surg4', name: 'Surgical 4', type: 'device', status: 'online', ip: '10.4.0.16', zone: 'OR', x: 840, y: 490 },
+    // OR Row 3 - Imaging (3)
+    { id: 'img1', name: 'Imaging 1', type: 'device', status: 'online', ip: '10.4.0.17', zone: 'OR', x: 720, y: 540 },
+    { id: 'img2', name: 'Imaging 2', type: 'device', status: 'online', ip: '10.4.0.18', zone: 'OR', x: 760, y: 540 },
+    { id: 'img3', name: 'Imaging 3', type: 'device', status: 'online', ip: '10.4.0.19', zone: 'OR', x: 800, y: 540 },
+    
+    // ========== DATA CENTER - 10 Servers ==========
+    { id: 'dc_switch', name: 'DC Switch', type: 'switch', status: 'online', ip: '10.100.0.1', zone: 'DataCenter', x: 560, y: 720 },
+    { id: 'emr_server', name: 'EMR Server', type: 'server', status: 'online', ip: '10.100.0.10', zone: 'DataCenter', x: 440, y: 780 },
+    { id: 'pacs_server', name: 'PACS Server', type: 'server', status: 'online', ip: '10.100.0.11', zone: 'DataCenter', x: 490, y: 780 },
+    { id: 'db_server', name: 'Database', type: 'server', status: 'online', ip: '10.100.0.12', zone: 'DataCenter', x: 540, y: 780 },
+    { id: 'backup', name: 'Backup', type: 'server', status: 'online', ip: '10.100.0.13', zone: 'DataCenter', x: 590, y: 780 },
+    { id: 'mqtt_broker', name: 'MQTT Broker', type: 'server', status: 'online', ip: '10.100.0.20', zone: 'DataCenter', x: 640, y: 780 },
+    { id: 'app1', name: 'App Server 1', type: 'server', status: 'online', ip: '10.100.0.21', zone: 'DataCenter', x: 440, y: 840 },
+    { id: 'app2', name: 'App Server 2', type: 'server', status: 'online', ip: '10.100.0.22', zone: 'DataCenter', x: 490, y: 840 },
+    { id: 'app3', name: 'App Server 3', type: 'server', status: 'online', ip: '10.100.0.23', zone: 'DataCenter', x: 540, y: 840 },
+    { id: 'app4', name: 'App Server 4', type: 'server', status: 'online', ip: '10.100.0.24', zone: 'DataCenter', x: 590, y: 840 },
+    { id: 'app5', name: 'App Server 5', type: 'server', status: 'online', ip: '10.100.0.25', zone: 'DataCenter', x: 640, y: 840 },
+  ];
+
+  const attackerNodes: NetworkNode[] = showAttackers ? ALL_ATTACK_TYPES
+    .filter(a => a.key !== 'Benign')
+    .slice(0, 8)
+    .map((attack, idx) => ({
+      id: `attacker_${attack.key}`,
+      name: attack.name,
+      type: 'attacker' as const,
+      status: activeAttacks.has(attack.key) ? 'attacking' as const : 'warning' as const,
+      ip: `192.168.${100 + idx}.${Math.floor(Math.random() * 254) + 1}`,
+      zone: 'Attacker',
+      x: 720 + (idx % 4) * 50,
+      y: 30 + Math.floor(idx / 4) * 70,
+      attackType: attack.key,
+      count: attackCounts[attack.key] || 0,
+    })) : [];
+
+  const allNodes = [...nodes, ...attackerNodes];
+
+  // ========== CONNECTIONS ==========
+  const connections = [
+    // Core
+    { from: 'internet', to: 'firewall' },
+    { from: 'firewall', to: 'ids_ips' },
+    { from: 'firewall', to: 'core_router' },
+    { from: 'ids_ips', to: 'sec_switch' },
+    { from: 'sec_switch', to: 'sec_monitor' },
+    { from: 'sec_switch', to: 'log_server' },
+    { from: 'core_router', to: 'dist_switch1' },
+    { from: 'core_router', to: 'dist_switch2' },
+    { from: 'core_router', to: 'dc_switch' },
+    // Distribution
+    { from: 'dist_switch1', to: 'icu_switch' },
+    { from: 'dist_switch1', to: 'er_switch' },
+    { from: 'dist_switch2', to: 'ward_switch' },
+    { from: 'dist_switch2', to: 'or_switch' },
+    // ICU
+    { from: 'icu_switch', to: 'icu_wifi' },
+    ...['vent1','vent2','vent3','vent4','vent5','ecg_icu1','ecg_icu2','ecg_icu3','ecg_icu4','ecg_icu5',
+        'pump1','pump2','pump3','pump4','pump5','pump6','pump7','pump8','pump9','pump10',
+        'pat_icu1','pat_icu2','pat_icu3','pat_icu4','pat_icu5'].map(id => ({ from: 'icu_wifi', to: id })),
+    // ER
+    { from: 'er_switch', to: 'er_wifi' },
+    ...['defib1','defib2','defib3','defib4','ecg_er1','ecg_er2','ecg_er3','ecg_er4',
+        'vital1','vital2','vital3','vital4','vital5','vital6','vital7','vital8',
+        'xray1','xray2','xray3','xray4'].map(id => ({ from: 'er_wifi', to: id })),
+    // Ward
+    { from: 'ward_switch', to: 'ward_wifi' },
+    ...['pat_w1','pat_w2','pat_w3','pat_w4','pat_w5','pat_w6','pat_w7','pat_w8',
+        'temp1','temp2','temp3','temp4','hr1','hr2','hr3','hr4',
+        'nurse1','nurse2','nurse3','nurse4'].map(id => ({ from: 'ward_wifi', to: id })),
+    // OR
+    { from: 'or_switch', to: 'or_wifi' },
+    ...['anes1','anes2','anes3','surg1','surg2','surg3','surg4','img1','img2','img3'].map(id => ({ from: 'or_wifi', to: id })),
+    // Data Center
+    ...['emr_server','pacs_server','db_server','backup','mqtt_broker','app1','app2','app3','app4','app5'].map(id => ({ from: 'dc_switch', to: id })),
+    // Attack connections
+    ...attackerNodes.map(a => ({ from: 'firewall', to: a.id, isAttack: true })),
+  ];
+
+  const totalAttacks = Object.entries(attackCounts).filter(([k]) => k !== 'Benign').reduce((sum, [, v]) => sum + v, 0);
+
+  const getNodeColor = (type: string) => {
+    switch (type) {
+      case 'firewall': return 'bg-red-600';
+      case 'router': return 'bg-purple-600';
+      case 'switch': return 'bg-blue-600';
+      case 'server': return 'bg-emerald-600';
+      case 'device': return 'bg-cyan-600';
+      case 'ids': return 'bg-yellow-500';
+      case 'wifi': return 'bg-indigo-500';
+      case 'gateway': return 'bg-gray-600';
+      default: return 'bg-gray-600';
+    }
+  };
+
+  const getNodeIcon = (type: string, attackType?: string) => {
+    if (type === 'attacker') {
+      const attack = ALL_ATTACK_TYPES.find(a => a.key === attackType);
+      return <span className="text-xs">{attack?.icon || '⚠️'}</span>;
+    }
+    switch (type) {
+      case 'firewall': return <span className="text-xs">🛡️</span>;
+      case 'router': return <span className="text-xs">🔀</span>;
+      case 'switch': return <span className="text-xs">🔌</span>;
+      case 'server': return <span className="text-xs">🖥️</span>;
+      case 'device': return <span className="text-xs">📟</span>;
+      case 'ids': return <span className="text-xs">🔍</span>;
+      case 'wifi': return <span className="text-xs">📶</span>;
+      case 'gateway': return <span className="text-xs">🌐</span>;
+      default: return <span className="text-xs">❓</span>;
+    }
+  };
+
+  const getStatusIndicator = (status: string, type: string) => {
+    if (type === 'attacker') return 'bg-red-500 animate-pulse';
+    return status === 'online' ? 'bg-emerald-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-red-500';
+  };
+
+  const textColor = isDark ? 'text-white' : 'text-slate-900';
+  const textMuted = isDark ? 'text-gray-400' : 'text-slate-600';
+  const textFaint = isDark ? 'text-gray-500' : 'text-slate-500';
+  const bgCard = isDark ? 'bg-gradient-to-br from-[#0d1424] to-[#1a1f2e]' : 'bg-white';
+  const bgMap = isDark ? 'bg-[#080c14]' : 'bg-slate-100';
+  const borderColor = isDark ? 'border-gray-800' : 'border-slate-200';
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className={`text-2xl font-bold ${textColor}`}>Network Topology</h1>
+          <p className={textMuted}>Hospital IoT Network - 85 Medical Devices</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${isConnected ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span className={`text-xs font-medium ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>{isConnected ? 'LIVE' : 'OFFLINE'}</span>
+          </div>
+          {currentAttack !== 'None' && currentAttack !== 'Benign' && (
+            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-red-500/20 animate-pulse">
+              <span className="text-xs font-medium text-red-400">🔴 {currentAttack.replace('_', ' ')}</span>
+            </div>
+          )}
+          <button onClick={() => setShowAttackers(!showAttackers)}
+            className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${showAttackers ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+            {showAttackers ? '🔒 Hide Attackers' : '👁️ Show Attackers'}
+          </button>
+          <div className={`flex items-center space-x-2 ${isDark ? 'bg-[#1a1f2e]' : 'bg-slate-200'} rounded-lg px-2 py-1`}>
+            <button onClick={() => setZoomLevel(Math.max(40, zoomLevel - 10))} className={`${textMuted} px-1`}>−</button>
+            <span className={`text-xs w-10 text-center ${textColor}`}>{zoomLevel}%</span>
+            <button onClick={() => setZoomLevel(Math.min(120, zoomLevel + 10))} className={`${textMuted} px-1`}>+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className={`${bgCard} rounded-lg p-3 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Total Devices</p>
+          <p className={`text-xl font-bold ${textColor}`}>85</p>
+        </div>
+        <div className={`${bgCard} rounded-lg p-3 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Online</p>
+          <p className="text-xl font-bold text-emerald-400">85</p>
+        </div>
+        <div className={`${bgCard} rounded-lg p-3 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Attacks</p>
+          <p className="text-xl font-bold text-red-400">{totalAttacks}</p>
+        </div>
+        <div className={`${bgCard} rounded-lg p-3 border ${borderColor}`}>
+          <p className={`${textMuted} text-xs`}>Attack Types</p>
+          <p className="text-xl font-bold text-purple-400">{Object.entries(attackCounts).filter(([k, v]) => k !== 'Benign' && v > 0).length}/8</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Network Map */}
+        <div className={`lg:col-span-3 ${bgCard} rounded-xl border ${borderColor} overflow-hidden`}>
+          <div className={`p-3 border-b ${borderColor} flex items-center justify-between`}>
+            <h2 className={`font-semibold ${textColor}`}>Hospital Network Map - Full Topology</h2>
+            <div className={`flex items-center space-x-2 text-[10px] ${textMuted}`}>
+              <span className="flex items-center"><span className="w-2 h-2 bg-red-600 rounded mr-1"></span>FW</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-purple-600 rounded mr-1"></span>Router</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-blue-600 rounded mr-1"></span>Switch</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-emerald-600 rounded mr-1"></span>Server</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-cyan-600 rounded mr-1"></span>Device</span>
+              <span className="flex items-center"><span className="w-2 h-2 bg-indigo-500 rounded mr-1"></span>WiFi</span>
+            </div>
+          </div>
+          <div className={`relative ${bgMap} overflow-auto`} style={{ height: '750px' }}>
+            <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: '920px', height: '900px', position: 'relative' }}>
+              
+              {/* Zone Backgrounds */}
+              <div className="absolute rounded-lg border-2 border-purple-500/40 bg-purple-500/10" style={{ left: '260px', top: '55px', width: '300px', height: '130px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-purple-400 font-bold">🏛️ CORE / SECURITY</span>
+              </div>
+              <div className="absolute rounded-lg border-2 border-blue-500/40 bg-blue-500/10" style={{ left: '10px', top: '300px', width: '220px', height: '380px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-blue-400 font-bold">🏥 ICU (25 devices)</span>
+              </div>
+              <div className="absolute rounded-lg border-2 border-yellow-500/40 bg-yellow-500/10" style={{ left: '240px', top: '300px', width: '180px', height: '380px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-yellow-400 font-bold">🚑 ER (20 devices)</span>
+              </div>
+              <div className="absolute rounded-lg border-2 border-green-500/40 bg-green-500/10" style={{ left: '430px', top: '300px', width: '200px', height: '380px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-green-400 font-bold">🛏️ WARD (20 devices)</span>
+              </div>
+              <div className="absolute rounded-lg border-2 border-cyan-500/40 bg-cyan-500/10" style={{ left: '700px', top: '300px', width: '200px', height: '280px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-cyan-400 font-bold">⚕️ OR (10 devices)</span>
+              </div>
+              <div className="absolute rounded-lg border-2 border-orange-500/40 bg-orange-500/10" style={{ left: '420px', top: '700px', width: '280px', height: '180px' }}>
+                <span className="absolute top-1 left-2 text-[10px] text-orange-400 font-bold">🗄️ DATA CENTER (10 servers)</span>
+              </div>
+              
+              {showAttackers && attackerNodes.length > 0 && (
+                <div className="absolute rounded-lg border-2 border-red-500/60 bg-red-500/15 animate-pulse" style={{ left: '700px', top: '10px', width: '210px', height: '160px' }}>
+                  <span className="absolute top-1 left-2 text-[10px] text-red-400 font-bold">⚠️ ATTACKERS</span>
+                </div>
+              )}
+
+              {/* SVG Connections */}
+              <svg className="absolute inset-0 pointer-events-none" style={{ width: '920px', height: '900px' }}>
+                {connections.map((conn, idx) => {
+                  const fromNode = allNodes.find(n => n.id === conn.from);
+                  const toNode = allNodes.find(n => n.id === conn.to);
+                  if (!fromNode || !toNode) return null;
+                  const isAttackLine = (conn as any).isAttack;
+                  const isActive = isAttackLine && toNode.attackType && activeAttacks.has(toNode.attackType);
+                  return (
+                    <line key={idx} x1={fromNode.x + 12} y1={fromNode.y + 12} x2={toNode.x + 12} y2={toNode.y + 12}
+                      stroke={isAttackLine ? (isActive ? '#ef4444' : '#555') : '#374151'}
+                      strokeWidth={isAttackLine ? (isActive ? 2 : 1) : 1}
+                      strokeDasharray={isAttackLine ? '4,4' : 'none'}
+                      className={isActive ? 'animate-pulse' : ''} />
+                  );
+                })}
+              </svg>
+
+              {/* Nodes */}
+              {allNodes.map((node) => {
+                const isAttacking = node.type === 'attacker' && node.attackType && activeAttacks.has(node.attackType);
+                const attackColor = node.attackType ? getAttackColor(node.attackType) : undefined;
+                return (
+                  <div key={node.id} onClick={() => setSelectedNode(node)}
+                    className={`absolute cursor-pointer transition-transform hover:scale-125 ${selectedNode?.id === node.id ? 'ring-2 ring-white rounded' : ''} ${isAttacking ? 'animate-bounce' : ''}`}
+                    style={{ left: node.x, top: node.y }} title={node.name}>
+                    <div className={`w-6 h-6 rounded flex items-center justify-center text-white shadow-md relative ${node.type === 'attacker' ? '' : getNodeColor(node.type)}`}
+                      style={node.type === 'attacker' ? { backgroundColor: attackColor } : undefined}>
+                      {getNodeIcon(node.type, node.attackType)}
+                      <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 ${getStatusIndicator(node.status, node.type)} rounded-full border ${isDark ? 'border-[#080c14]' : 'border-slate-100'}`}></div>
+                    </div>
+                    <p className={`text-[7px] ${textMuted} text-center mt-0.5 max-w-[45px] truncate leading-tight`}>{node.name}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Side Panel */}
+        <div className={`${bgCard} rounded-xl border ${borderColor} flex flex-col`} style={{ maxHeight: '800px' }}>
+          <div className={`p-3 border-b ${borderColor}`}>
+            <h2 className={`font-semibold ${textColor}`}>Node Details</h2>
+          </div>
+          {selectedNode ? (
+            <div className="p-3 space-y-2 overflow-y-auto">
+              <div className="flex items-center space-x-2">
+                <div className={`w-8 h-8 rounded flex items-center justify-center text-white ${selectedNode.type === 'attacker' ? '' : getNodeColor(selectedNode.type)}`}
+                  style={selectedNode.type === 'attacker' ? { backgroundColor: getAttackColor(selectedNode.attackType) } : undefined}>
+                  {getNodeIcon(selectedNode.type, selectedNode.attackType)}
+                </div>
+                <div>
+                  <h3 className={`${textColor} font-semibold text-sm`}>{selectedNode.name}</h3>
+                  <p className={`${textMuted} text-xs`}>{selectedNode.type}</p>
+                </div>
+              </div>
+              <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded p-2 text-xs`}>
+                <p className={textFaint}>Status</p>
+                <p className={selectedNode.status === 'online' ? 'text-emerald-400' : 'text-red-400'}>{selectedNode.type === 'attacker' ? (activeAttacks.has(selectedNode.attackType || '') ? 'Attacking' : (attackCounts[selectedNode.attackType || ''] > 0 ? 'Active' : 'Idle')) : selectedNode.status}</p>
+              </div>
+              <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded p-2 text-xs`}>
+                <p className={textFaint}>IP Address</p>
+                <p className={`${textColor} font-mono`}>{selectedNode.ip}</p>
+              </div>
+              <div className={`${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} rounded p-2 text-xs`}>
+                <p className={textFaint}>Zone</p>
+                <p className={textColor}>{selectedNode.zone}</p>
+              </div>
+              {selectedNode.type === "attacker" && (
+                <div className={`${isDark ? "bg-[#0a0f1c]" : "bg-slate-100"} rounded p-2 text-xs`}>
+                  <p className={textFaint}>Attack Count</p>
+                  <p className={`text-red-400 font-bold`}>{attackCounts[selectedNode.attackType || ""] || 0}</p>
+                </div>
+              )}
+              </div>
+                <button className={`flex-1 px-2 py-1.5 ${isDark ? 'bg-gray-700' : 'bg-slate-200'} ${textColor} text-xs rounded`}>Details</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center">
+              <p className={`${textMuted} text-sm`}>Click a node</p>
+            </div>
+          )}
+          
+          {/* Zones */}
+          <div className={`p-3 border-t ${borderColor}`}>
+            <h3 className={`text-xs font-medium ${textColor} mb-2`}>Zones</h3>
+            <div className="space-y-1 text-[10px]">
+              <div className="flex justify-between"><span className="text-blue-400">ICU</span><span className={textMuted}>25 devices</span></div>
+              <div className="flex justify-between"><span className="text-yellow-400">ER</span><span className={textMuted}>20 devices</span></div>
+              <div className="flex justify-between"><span className="text-green-400">Ward</span><span className={textMuted}>20 devices</span></div>
+              <div className="flex justify-between"><span className="text-cyan-400">OR</span><span className={textMuted}>10 devices</span></div>
+              <div className="flex justify-between"><span className="text-orange-400">DC</span><span className={textMuted}>10 servers</span></div>
+            </div>
+          </div>
+
+          {/* Attacks */}
+          <div className={`p-3 border-t ${borderColor} flex-1 overflow-y-auto`}>
+            <h3 className={`text-xs font-medium ${textColor} mb-2`}>Attacks</h3>
+            <div className="space-y-1">
+              {ALL_ATTACK_TYPES.filter(a => a.key !== 'Benign').map((attack) => {
+                const count = attackCounts[attack.key] || 0;
+                const isActive = activeAttacks.has(attack.key);
+                return (
+                  <div key={attack.key} className={`flex items-center justify-between text-[10px] p-1 rounded ${isActive ? 'bg-red-500/20' : ''}`}>
+                    <span style={{ color: attack.color }}>{attack.icon} {attack.name}</span>
+                    <span className={count > 0 ? 'text-red-400 font-bold' : textFaint}>{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ping Modal */}
+      {pingResult.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setPingResult({show: false, ip: '', results: [], status: null})}>
+          <div className={`${isDark ? 'bg-[#0d1424]' : 'bg-white'} border ${borderColor} rounded-xl p-4 w-96`} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className={`font-bold ${textColor}`}>🖥️ Ping {pingResult.ip}</h3>
+              <button onClick={() => setPingResult({show: false, ip: '', results: [], status: null})} className={textMuted}>&times;</button>
+            </div>
+            <div className="bg-black rounded-lg p-3 font-mono text-xs text-green-400 h-40 overflow-y-auto">
+              <p className="text-gray-500">$ ping {pingResult.ip}</p>
+              {pingResult.results.map((line: string, i: number) => <p key={i}>{line}</p>)}
+              {pingResult.status === 'pinging' && <span className="animate-pulse">▋</span>}
+            </div>
+            <div className="mt-3 flex justify-between">
+              <span className={`text-xs ${pingResult.status === 'success' ? 'text-green-400' : 'text-yellow-400'}`}>
+                {pingResult.status === 'success' ? '✓ Done' : '⏳ Pinging...'}
+              </span>
+              <button onClick={() => setPingResult({show: false, ip: '', results: [], status: null})} className="px-3 py-1 bg-blue-600 text-white text-xs rounded">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NetworkTopology;

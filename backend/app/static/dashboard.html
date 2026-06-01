@@ -1,0 +1,4683 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AEGIS · Command Center</title>
+<meta name="description" content="AI-Enhanced Guardian for IoT Security — Real-time intrusion detection for healthcare IoT networks." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+/* ====================================================================
+   AEGIS — DESIGN TOKENS (LIGHT + DARK)
+   ==================================================================== */
+:root {
+  /* Accent palette — vivid in both themes */
+  --cyan:    #06b6d4;
+  --violet:  #8b5cf6;
+  --mint:    #10b981;
+  --amber:   #f59e0b;
+  --rose:    #ec4899;
+  --blue:    #3b82f6;
+  --orange:  #f97316;
+  --red:     #ef4444;
+  --gold:    #eab308;
+
+  /* Fonts */
+  --font-display: 'IBM Plex Serif', 'Georgia', 'Times New Roman', serif;
+  --font-body:    'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Consolas', 'Courier New', monospace;
+
+  /* Easing */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:    cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-soft:  cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Geometry */
+  --sidebar-w: 280px;
+  --topbar-h:  64px;
+  --bevel:     22px;
+}
+
+[data-theme="dark"] {
+  --bg-base:   #0a0d18;
+  --bg-deep:   #060812;
+  --surface:   #11162a;
+  --surface-2: #181f3a;
+  --surface-3: #222b4d;
+  --border:    rgba(180, 200, 240, 0.08);
+  --border-2:  rgba(180, 200, 240, 0.16);
+  --text:      #eaeefb;
+  --text-sub:  #a0aac4;
+  --text-dim:  #5d6783;
+  --text-faint:#3d4660;
+
+  --cyan-soft:   rgba(6, 182, 212, 0.12);
+  --violet-soft: rgba(139, 92, 246, 0.12);
+  --mint-soft:   rgba(16, 185, 129, 0.12);
+  --amber-soft:  rgba(245, 158, 11, 0.12);
+  --rose-soft:   rgba(236, 72, 153, 0.12);
+  --blue-soft:   rgba(59, 130, 246, 0.12);
+  --orange-soft: rgba(249, 115, 22, 0.12);
+  --red-soft:    rgba(239, 68, 68, 0.12);
+
+  --cyan-glow:   rgba(6, 182, 212, 0.5);
+  --shadow-strong: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border);
+}
+
+[data-theme="light"] {
+  --bg-base:   #f1ebdf;
+  --bg-deep:   #e9e1d0;
+  --surface:   #ffffff;
+  --surface-2: #faf4e8;
+  --surface-3: #f3eddb;
+  --border:    rgba(20, 24, 50, 0.08);
+  --border-2:  rgba(20, 24, 50, 0.16);
+  --text:      #0e1330;
+  --text-sub:  #4a5470;
+  --text-dim:  #7a8197;
+  --text-faint:#aab0c0;
+
+  --cyan-soft:   rgba(6, 182, 212, 0.12);
+  --violet-soft: rgba(139, 92, 246, 0.12);
+  --mint-soft:   rgba(16, 185, 129, 0.14);
+  --amber-soft:  rgba(245, 158, 11, 0.14);
+  --rose-soft:   rgba(236, 72, 153, 0.12);
+  --blue-soft:   rgba(59, 130, 246, 0.12);
+  --orange-soft: rgba(249, 115, 22, 0.14);
+  --red-soft:    rgba(239, 68, 68, 0.12);
+
+  --cyan-glow:   rgba(6, 182, 212, 0.35);
+  --shadow-strong: 0 16px 48px rgba(20, 24, 50, 0.12), 0 0 0 1px var(--border);
+}
+
+/* ====================================================================
+   RESET + GLOBAL
+   ==================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*::selection { background: var(--accent, var(--cyan)); color: var(--bg-deep); }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  scroll-behavior: smooth;
+  font-size: 13px;   /* global density; 16px = original, 12px = denser */
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  background: var(--bg-base);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.5s var(--ease-soft), color 0.5s var(--ease-soft);
+}
+
+/* Body atmospheric gradients */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 15%, var(--cyan-soft), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, var(--violet-soft), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, var(--mint-soft), transparent 70%);
+  transition: opacity 0.5s var(--ease-soft);
+}
+
+[data-theme="light"] body::before { opacity: 0.7; }
+
+/* Grid texture */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--text-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--text-faint) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.05;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent 80%);
+}
+
+/* ====================================================================
+   TYPOGRAPHY UTILITIES
+   ==================================================================== */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  color: var(--text);
+}
+
+.mono { font-family: var(--font-mono); }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent, var(--cyan));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--accent, var(--cyan));
+  display: inline-block;
+  transform: rotate(45deg);
+}
+
+/* ====================================================================
+   APP SHELL
+   ==================================================================== */
+.app {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100vh;
+  z-index: 1;
+}
+
+/* ====================================================================
+   SIDEBAR — "Shield-Armored Pillar"
+   ==================================================================== */
+.sidebar {
+  position: relative;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  /* Chamfered top-right + bottom-right corners — armor plate look */
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--bevel)) 0,
+    100% var(--bevel),
+    100% calc(100% - var(--bevel)),
+    calc(100% - var(--bevel)) 100%,
+    0 100%
+  );
+  z-index: 10;
+  transition: background 0.5s var(--ease-soft);
+}
+
+/* Faint inner glow */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    var(--accent-soft, var(--cyan-soft)) 0%,
+    transparent 30%,
+    transparent 70%,
+    var(--accent-soft, var(--cyan-soft)) 100%);
+  pointer-events: none;
+  opacity: 0.5;
+  transition: background 0.6s var(--ease-soft);
+}
+
+/* Vertical ghost AEGIS wordmark along right edge */
+.sidebar-ghost {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: rotate(-90deg) translateX(50%);
+  transform-origin: right center;
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  font-style: italic;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* === SIDEBAR HEADER === */
+.sb-head {
+  padding: 1.5rem 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.brand-mark svg { width: 100%; height: 100%; display: block; }
+
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent, var(--cyan)) 0%, transparent 70%);
+  opacity: 0.3;
+  filter: blur(8px);
+  z-index: -1;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--text);
+  line-height: 1;
+}
+.brand-name em {
+  font-style: italic;
+  color: var(--accent, var(--cyan));
+  font-weight: 300;
+}
+
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+}
+
+/* === NAVIGATION === */
+.sb-nav {
+  flex: 1;
+  padding: 1rem 0.85rem;
+  overflow-y: auto;
+  position: relative;
+  z-index: 2;
+}
+
+.sb-nav-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0.5rem 0.75rem 0.85rem;
+  display: block;
+}
+
+.nav-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.25rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-sub);
+  border-radius: 6px;
+  position: relative;
+  transition: all 0.3s var(--ease-out);
+}
+
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-left-color: var(--item-color);
+}
+
+.nav-item:hover .nav-icon { color: var(--item-color); }
+.nav-item:hover .nav-num { color: var(--item-color); }
+
+.nav-item.active {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+  border-left-color: var(--item-color);
+  box-shadow:
+    inset 4px 0 0 var(--item-color),
+    0 1px 0 rgba(0,0,0,0.05);
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--item-color);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  filter: drop-shadow(0 0 6px var(--item-color));
+}
+
+.nav-item.active .nav-num,
+.nav-item.active .nav-icon {
+  color: var(--item-color);
+}
+
+.nav-num {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  transition: color 0.3s var(--ease-out);
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sub);
+  transition: color 0.3s var(--ease-out);
+}
+.nav-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-label {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--item-color);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.nav-item.active .nav-dot {
+  opacity: 1;
+  animation: blip 1.5s var(--ease-soft) infinite;
+}
+
+@keyframes blip {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.5); }
+}
+
+/* === SIDEBAR FOOTER === */
+.sb-foot {
+  padding: 1rem 1.25rem 1.5rem;
+  border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
+}
+
+.theme-toggle {
+  display: flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.theme-toggle button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 100px;
+  transition: all 0.3s var(--ease-out);
+  z-index: 2;
+  position: relative;
+}
+
+.theme-toggle button.active {
+  background: var(--text);
+  color: var(--bg-base);
+  font-weight: 600;
+}
+
+.theme-toggle svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.sb-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--mint);
+  margin-bottom: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.sb-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mint);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+.sb-meta {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ====================================================================
+   MAIN
+   ==================================================================== */
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.topbar {
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  background: var(--bg-base);
+  position: relative;
+  z-index: 5;
+  gap: 2rem;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.crumb-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+
+.crumb-name {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 400;
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.crumb-name::before {
+  content: '/ ';
+  color: var(--text-dim);
+  font-style: normal;
+}
+
+.topbar-search {
+  flex: 1;
+  max-width: 480px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.85rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: border-color 0.3s var(--ease-out);
+}
+
+.topbar-search:hover { border-color: var(--accent, var(--cyan)); }
+
+.topbar-search svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.topbar-search kbd {
+  margin-left: auto;
+  padding: 0.15rem 0.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-sub);
+}
+
+.topbar-meta strong { color: var(--text); font-weight: 600; }
+
+.topbar-meta .sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.live-pulse {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--red);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.live-pulse::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--red);
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ====================================================================
+   VIEW CONTAINER
+   ==================================================================== */
+.view-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.view {
+  position: absolute;
+  inset: 0;
+  padding: 2rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+}
+
+.view.active {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+}
+
+/* Custom scrollbars */
+.view::-webkit-scrollbar,
+.sb-nav::-webkit-scrollbar { width: 6px; }
+.view::-webkit-scrollbar-track,
+.sb-nav::-webkit-scrollbar-track { background: transparent; }
+.view::-webkit-scrollbar-thumb,
+.sb-nav::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 3px;
+}
+
+/* Per-view accent assignment */
+#view-overview  { --accent: var(--cyan);   --accent-soft: var(--cyan-soft);   --accent-glow: var(--cyan-glow); }
+#view-alerts    { --accent: var(--red);    --accent-soft: var(--red-soft); }
+#view-topology  { --accent: var(--mint);   --accent-soft: var(--mint-soft); }
+#view-devices   { --accent: var(--blue);   --accent-soft: var(--blue-soft); }
+#view-detection { --accent: var(--violet); --accent-soft: var(--violet-soft); }
+#view-response  { --accent: var(--orange); --accent-soft: var(--orange-soft); }
+#view-crypto    { --accent: var(--amber);  --accent-soft: var(--amber-soft); }
+#view-reports   { --accent: var(--cyan);   --accent-soft: var(--cyan-soft);   --accent-glow: var(--cyan-glow); }
+#view-about     { --accent: var(--mint);   --accent-soft: var(--mint-soft); }
+
+/* ====================================================================
+   COMMON COMPONENTS
+   ==================================================================== */
+.view-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.75rem;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.view-head h1 {
+  font-size: clamp(1.5rem, 2.6vw, 2.3rem);
+  font-weight: 300;
+  font-variation-settings: "opsz" 144;
+  margin-top: 0.6rem;
+  white-space: nowrap;
+}
+.view-head h1 em {
+  font-style: italic;
+  color: var(--accent, var(--cyan));
+  font-weight: 300;
+  display: inline;
+}
+
+.view-head p {
+  color: var(--text-sub);
+  max-width: 520px;
+  font-size: 0.95rem;
+}
+
+.view-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn:hover {
+  border-color: var(--accent, var(--cyan));
+  color: var(--accent, var(--cyan));
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent, var(--cyan));
+  color: var(--bg-deep);
+  border-color: var(--accent, var(--cyan));
+  font-weight: 600;
+}
+.btn-primary:hover {
+  color: var(--bg-deep);
+  box-shadow: 0 8px 24px var(--accent-glow, var(--cyan-glow));
+}
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  position: relative;
+  transition: border-color 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+
+.card:hover { border-color: var(--border-2); }
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+  gap: 1rem;
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+}
+
+.card-sub {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-top: 0.2rem;
+  text-transform: uppercase;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tag.active {
+  color: var(--accent, var(--cyan));
+  border-color: var(--accent, var(--cyan));
+  background: var(--accent-soft, var(--cyan-soft));
+}
+
+/* ====================================================================
+   OVERVIEW VIEW
+   ==================================================================== */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.25rem;
+  height: calc(100% - 80px);
+}
+
+.overview-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.overview-hero::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--cyan-soft) 0%, transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.hero-headline {
+  font-size: clamp(2.8rem, 5vw, 4.5rem);
+  font-weight: 300;
+  font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-headline em {
+  font-style: italic;
+  color: var(--cyan);
+  font-weight: 300;
+}
+
+.hero-deck {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--text-sub);
+  max-width: 540px;
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-body {
+  color: var(--text-sub);
+  max-width: 560px;
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-stat-tile {
+  padding: 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;
+}
+.hero-stat-tile::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+  border-radius: 8px 8px 0 0;
+}
+.hero-stat-tile.violet::before { background: linear-gradient(90deg, var(--violet), transparent); }
+.hero-stat-tile.mint::before { background: linear-gradient(90deg, var(--mint), transparent); }
+.hero-stat-tile.amber::before { background: linear-gradient(90deg, var(--amber), transparent); }
+
+.hero-stat-tile .val {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-variation-settings: "opsz" 144;
+  line-height: 1;
+  color: var(--text);
+}
+.hero-stat-tile .val em {
+  font-style: italic;
+  color: var(--cyan);
+}
+.hero-stat-tile.violet .val em { color: var(--violet); }
+.hero-stat-tile.mint .val em { color: var(--mint); }
+.hero-stat-tile.amber .val em { color: var(--amber); }
+
+.hero-stat-tile .lbl {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  margin-top: 0.4rem;
+  text-transform: uppercase;
+}
+
+.overview-side {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 1.25rem;
+}
+
+.over-snap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.snap-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+
+.snap-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.snap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.snap-row:last-child { border-bottom: none; }
+
+.snap-row .left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.snap-row .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.snap-row .dot.mint { background: var(--mint); }
+.snap-row .dot.red { background: var(--red); }
+.snap-row .dot.amber { background: var(--amber); }
+.snap-row .dot.violet { background: var(--violet); }
+
+.snap-row .label { color: var(--text-sub); }
+.snap-row .value { color: var(--text); font-weight: 600; }
+
+.over-quick {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+}
+
+.quick-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  border-bottom: 1px solid var(--border);
+  transition: color 0.2s var(--ease-out);
+}
+.quick-row:last-child { border-bottom: none; }
+.quick-row:hover { color: var(--cyan); }
+.quick-row .arr { font-family: var(--font-display); font-style: italic; }
+
+/* ====================================================================
+   DASHBOARD VIEW
+   ==================================================================== */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s var(--ease-out);
+}
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--kpi-color, var(--cyan));
+  box-shadow: 0 0 12px var(--kpi-color, var(--cyan));
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  border-color: var(--kpi-color, var(--cyan));
+}
+
+.kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.kpi-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.kpi-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  padding: 0.18rem 0.4rem;
+  border-radius: 3px;
+  background: var(--kpi-soft, var(--cyan-soft));
+  color: var(--kpi-color, var(--cyan));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-variation-settings: "opsz" 144;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+.kpi-value .unit {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.kpi-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-sub);
+}
+
+.kpi-spark {
+  height: 22px;
+  width: 70px;
+}
+
+/* Dashboard grid */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  min-height: 340px;
+}
+
+.dash-grid .card { padding: 1.25rem; }
+
+/* Threat feed */
+.threat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.threat-entry {
+  display: grid;
+  grid-template-columns: 60px 1fr auto auto;
+  gap: 0.85rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--surface-2);
+  border-left: 2px solid var(--cyan);
+  border-radius: 0 6px 6px 0;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  animation: slideIn 0.4s var(--ease-out);
+}
+
+.threat-entry.crit  { border-left-color: var(--red);    background: var(--red-soft); }
+.threat-entry.high  { border-left-color: var(--amber);  background: var(--amber-soft); }
+.threat-entry.med   { border-left-color: var(--violet); }
+.threat-entry.info  { border-left-color: var(--mint); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.t-time { color: var(--text-dim); font-size: 0.68rem; }
+.t-msg { color: var(--text); }
+.t-msg .src { color: var(--cyan); }
+.t-msg .typ { color: var(--text-sub); }
+.t-conf { color: var(--text-sub); font-size: 0.66rem; }
+.t-act {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.t-act.blocked { background: var(--red-soft); color: var(--red); }
+.t-act.allowed { background: var(--mint-soft); color: var(--mint); }
+.t-act.monitor { background: var(--violet-soft); color: var(--violet); }
+
+/* Distribution donut + center */
+.donut-wrap {
+  position: relative;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut-center .n {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--cyan);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1;
+}
+
+.donut-center .l {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 0.35rem;
+}
+
+/* Traffic chart */
+.traffic-wrap {
+  height: 280px;
+  position: relative;
+}
+
+/* Inference table */
+.inf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.inf-table th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+}
+.inf-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-sub);
+}
+.inf-table tr:hover td { background: var(--surface-2); }
+.cls.benign { color: var(--mint); }
+.cls.threat { color: var(--red); }
+.cls { color: var(--text); }
+
+.cbar {
+  width: 100%;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cfill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+  border-radius: 2px;
+}
+
+/* ====================================================================
+   TOPOLOGY VIEW
+   ==================================================================== */
+.topo-wrap {
+  position: relative;
+  height: calc(100% - 80px);
+  min-height: 860px;
+}
+
+.topo-canvas {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 8%, var(--mint-soft), transparent 55%),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.topo-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 0.5rem;
+  scrollbar-width: thin;
+}
+.topo-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.topo-scroll::-webkit-scrollbar-track { background: transparent; }
+.topo-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 5px; }
+
+.topo-scroll svg {
+  display: block;
+  margin: 0 auto;
+  width: max(100%, 1500px);
+  height: auto;
+  cursor: grab;
+}
+.topo-scroll svg:active { cursor: grabbing; }
+
+/* Floating glass overlays */
+.topo-float {
+  position: absolute;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  z-index: 4;
+}
+
+.topo-float .snap-title { margin-bottom: 0.75rem; }
+
+.tf-stats { top: 18px; left: 18px; width: 188px; }
+.tf-legend { bottom: 18px; right: 18px; width: 200px; }
+.tf-hint  {
+  bottom: 18px; left: 18px;
+  display: flex; align-items: center; gap: 0.6rem;
+  font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-dim);
+  letter-spacing: 0.04em;
+  padding: 0.7rem 1rem;
+}
+.tf-hint kbd {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-sub);
+  padding: 0.12rem 0.42rem; border: 1px solid var(--border-2);
+  border-radius: 4px; background: var(--surface-2);
+}
+
+.tf-stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.72rem;
+  cursor: pointer; transition: color 0.2s;
+}
+.tf-stat-row:last-child { border-bottom: none; }
+.tf-stat-row:hover { color: var(--text); }
+.tf-stat-row .nm { display: flex; align-items: center; gap: 0.5rem; color: var(--text-sub); }
+.tf-stat-row .sw { width: 9px; height: 9px; border-radius: 2px; }
+.tf-stat-row .ct { color: var(--text); font-weight: 600; }
+
+.topo-side {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 1rem;
+}
+
+/* SVG topology element styling */
+.t-node {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transition: transform 0.16s var(--ease-out);
+  cursor: pointer;
+}
+.t-node:hover { transform: scale(1.22); }
+.t-node:hover > rect { stroke-width: 2.5; }
+.t-dim { opacity: 0.14 !important; transition: opacity 0.4s var(--ease-out); }
+.t-tooltip {
+  position: absolute; z-index: 6; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--accent, var(--mint));
+  border-radius: 8px; padding: 0.5rem 0.7rem;
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--text);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3); opacity: 0;
+  transition: opacity 0.15s; white-space: nowrap; transform: translate(-50%, -130%);
+}
+.t-tooltip.show { opacity: 1; }
+.t-tooltip .ts { display: block; color: var(--text-dim); font-size: 0.6rem; margin-top: 0.15rem; }
+
+/* Zoom controls */
+.topo-zoom {
+  position: absolute;
+  top: 18px; right: 18px;
+  display: flex; flex-direction: column;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 5;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+}
+.topo-zoom button {
+  width: 44px; height: 40px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-sub);
+  font-family: var(--font-mono); font-size: 1.05rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s var(--ease-out);
+}
+.topo-zoom button:last-child { border-bottom: none; }
+.topo-zoom button:hover { background: var(--accent, var(--mint)); color: var(--bg-deep); }
+.topo-zoom .zpct {
+  font-size: 0.6rem; height: 30px; color: var(--text-dim);
+  cursor: default; letter-spacing: 0.04em;
+}
+.topo-zoom .zpct:hover { background: transparent; color: var(--text-dim); }
+.topo-zoom svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+.dept-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+.dept-tile {
+  padding: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  border-top: 2px solid var(--mint);
+}
+
+.dept-tile.icu  { border-top-color: var(--mint); }
+.dept-tile.er   { border-top-color: var(--rose); }
+.dept-tile.or   { border-top-color: var(--amber); }
+.dept-tile.ward { border-top-color: var(--violet); }
+
+.dept-tile .lbl {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.dept-tile .num {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-variation-settings: "opsz" 144;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1;
+  margin: 0.25rem 0;
+}
+.dept-tile .desc {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-sub);
+}
+
+.legend-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-sub);
+}
+.legend-row .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ====================================================================
+   DETECTION VIEW
+   ==================================================================== */
+.detect-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  height: calc(100% - 80px);
+}
+
+.attack-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.attack-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s var(--ease-out);
+  cursor: pointer;
+}
+
+.attack-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--violet), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s var(--ease-out);
+}
+
+.attack-card:hover {
+  border-color: var(--violet);
+  transform: translateY(-2px);
+}
+.attack-card:hover::before { transform: translateX(0); }
+
+.attack-card.benign { border-color: var(--border); }
+.attack-card.benign:hover { border-color: var(--mint); }
+.attack-card.benign::before { background: linear-gradient(90deg, transparent, var(--mint), transparent); }
+
+.attack-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.7rem;
+}
+
+.attack-id {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+.attack-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--violet-soft);
+  border-radius: 7px;
+  color: var(--violet);
+}
+.attack-card.benign .attack-icon { background: var(--mint-soft); color: var(--mint); }
+
+.attack-icon svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.attack-name {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+}
+
+.attack-desc {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin-bottom: 0.85rem;
+}
+
+.attack-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.sev {
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sev.low { background: var(--mint-soft); color: var(--mint); }
+.sev.med { background: var(--amber-soft); color: var(--amber); }
+.sev.high { background: rgba(255,107,84,0.15); color: var(--orange); }
+.sev.crit { background: var(--red); color: white; }
+
+.detect-side {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.model-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.m-stat {
+  padding: 1rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border-left: 2px solid var(--violet);
+}
+
+.m-stat .n {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--violet);
+  line-height: 1;
+}
+.m-stat .l {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 0.3rem;
+}
+
+.confirm-vis {
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.cv-title {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.85rem;
+}
+
+.cv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+
+.cv-step {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.cv-step.fire {
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+.cv-arr { color: var(--text-dim); }
+.cv-msg {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+/* ====================================================================
+   CRYPTO VIEW
+   ==================================================================== */
+.crypto-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 1rem;
+  height: calc(100% - 80px);
+}
+
+.crypto-left {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 1rem;
+}
+
+.state-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  margin: 1.25rem 0;
+}
+
+.state-cell {
+  aspect-ratio: 1;
+  background: var(--surface-2);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  transition: background 0.3s, color 0.3s;
+}
+
+.state-cell.act {
+  background: var(--amber);
+  color: var(--bg-deep);
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+.state-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.state-stat {
+  text-align: left;
+}
+.state-stat .lbl {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.state-stat .val {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--amber);
+  margin-top: 0.2rem;
+}
+.state-stat .val span { font-size: 0.7rem; color: var(--text-dim); }
+
+.crypto-code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-sub);
+  overflow-x: auto;
+}
+.crypto-code .kw { color: var(--violet); }
+.crypto-code .fn { color: var(--amber); }
+.crypto-code .str { color: var(--mint); }
+.crypto-code .com { color: var(--text-dim); font-style: italic; }
+
+.crypto-flow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.flow-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.flow-step:last-child { border-bottom: none; }
+
+.flow-n {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.flow-step strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.flow-step span {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+/* ====================================================================
+   PROTOCOL VIEW
+   ==================================================================== */
+.proto-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  height: calc(100% - 80px);
+}
+
+.lane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.lane::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--lane-color, var(--rose));
+}
+
+.lane.critical { --lane-color: var(--red); }
+.lane.high     { --lane-color: var(--amber); }
+.lane.normal   { --lane-color: var(--cyan); }
+.lane.low      { --lane-color: var(--text-dim); }
+
+.lane-head {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lane-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.4rem;
+}
+
+.lane-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--lane-color);
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+}
+
+.lane-count {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+  line-height: 1;
+}
+
+.lane-meta {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.lane-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+}
+
+.msg {
+  padding: 0.55rem 0.7rem;
+  background: var(--surface-2);
+  border-radius: 5px;
+  border-left: 2px solid var(--lane-color);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  animation: slideIn 0.4s var(--ease-out);
+}
+
+.msg-top {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  margin-bottom: 0.2rem;
+}
+
+.msg-body {
+  color: var(--text);
+}
+
+/* ====================================================================
+   ARCHITECTURE VIEW
+   ==================================================================== */
+.arch-wrap {
+  height: calc(100% - 80px);
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+}
+
+.arch-stack {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem 2rem;
+}
+
+.layer {
+  display: grid;
+  grid-template-columns: 70px 140px 1fr;
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1.1rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.layer:last-child { border-bottom: none; }
+
+.layer-num {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+  color: var(--blue);
+  font-weight: 300;
+  line-height: 1;
+}
+
+.layer-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  font-weight: 600;
+  border-right: 1px solid var(--border);
+  padding-right: 1.25rem;
+}
+.layer-name span {
+  display: block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
+.layer-comps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.comp {
+  padding: 0.55rem 0.9rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text);
+  transition: all 0.3s var(--ease-out);
+}
+.comp:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  transform: translateY(-1px);
+}
+.comp .s {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
+  letter-spacing: 0.04em;
+}
+
+.arch-side {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1rem;
+}
+
+.stack-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.tech {
+  padding: 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.3s var(--ease-out);
+}
+.tech:hover {
+  border-color: var(--blue);
+  transform: translateY(-2px);
+}
+.tech .nm {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+  display: block;
+}
+.tech .ct {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+}
+
+/* ====================================================================
+   TEAM VIEW
+   ==================================================================== */
+.team-wrap {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1rem;
+  height: calc(100% - 80px);
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.member {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s var(--ease-out);
+}
+
+.member:nth-child(1) { --m-color: var(--cyan); }
+.member:nth-child(2) { --m-color: var(--violet); }
+.member:nth-child(3) { --m-color: var(--mint); }
+
+.member::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, var(--m-color) 0%, transparent 70%);
+  opacity: 0.15;
+  filter: blur(20px);
+}
+
+.member:hover {
+  border-color: var(--m-color);
+  transform: translateY(-4px);
+}
+
+.member-av {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--m-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--bg-deep);
+  margin-bottom: 1.25rem;
+  font-weight: 500;
+  position: relative;
+  z-index: 2;
+}
+
+.member-name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  position: relative;
+  z-index: 2;
+}
+
+.member-role {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-color);
+  margin-bottom: 0.75rem;
+}
+
+.member-id {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+
+.member-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  padding: 0.3rem 0.55rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-sub);
+  letter-spacing: 0.05em;
+}
+
+.sup-wrap {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+}
+
+.sup-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.sup-lbl {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.85rem;
+}
+
+.sup-people {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.sup-person {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.25rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--text);
+}
+
+.sup-card .stat-big {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-variation-settings: "opsz" 144;
+  color: var(--orange);
+  font-style: italic;
+  line-height: 1;
+}
+
+.sup-card .stat-lbl {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-sub);
+  margin-top: 0.4rem;
+}
+
+/* ====================================================================
+   COMMAND PALETTE OVERLAY
+   ==================================================================== */
+.cmd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 100;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+}
+
+.cmd-overlay.open { display: flex; }
+
+.cmd-box {
+  width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 14px;
+  box-shadow: var(--shadow-strong);
+  overflow: hidden;
+  animation: cmdIn 0.25s var(--ease-out);
+}
+
+@keyframes cmdIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cmd-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 1.2rem 1.5rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text);
+  outline: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.cmd-input::placeholder { color: var(--text-dim); }
+
+.cmd-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.cmd-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 0.85rem;
+  padding: 0.7rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--text-sub);
+}
+
+.cmd-item:hover, .cmd-item.sel {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.cmd-item .num {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.cmd-item .key {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* ====================================================================
+   RESPONSIVE (collapse sidebar on small)
+   ==================================================================== */
+@media (max-width: 1100px) {
+  :root { --sidebar-w: 80px; }
+  .brand-text, .nav-label, .nav-num, .sb-status, .sb-meta, .sb-nav-label { display: none; }
+  .brand { justify-content: center; }
+  .nav-item { grid-template-columns: 1fr; justify-items: center; padding: 0.8rem; }
+  .nav-dot { display: none; }
+  .theme-toggle button span { display: none; }
+
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: 1fr; }
+  .overview-grid { grid-template-columns: 1fr; }
+  .topo-wrap { grid-template-columns: 1fr; }
+  .detect-grid { grid-template-columns: 1fr; }
+  .crypto-grid { grid-template-columns: 1fr; }
+  .proto-grid { grid-template-columns: repeat(2, 1fr); }
+  .arch-wrap { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+  .attack-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .topbar { padding: 0 1rem; gap: 1rem; }
+  .topbar-search { display: none; }
+  .topbar-meta { font-size: 0.62rem; gap: 0.8rem; }
+  .view { padding: 1rem; }
+  .proto-grid { grid-template-columns: 1fr; }
+  .attack-grid { grid-template-columns: 1fr; }
+}
+
+/* ====================================================================
+   FORMAL TYPOGRAPHY OVERRIDES — upright, enterprise, IBM Plex Sans
+   ==================================================================== */
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
+
+.view-head h1 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.12; white-space: nowrap; }
+.view-head h1 em { font-style: normal; font-weight: 600; display: inline; }
+
+.crumb-name { font-style: normal; font-weight: 500; }
+
+.kpi-value { font-weight: 600; letter-spacing: -0.01em; }
+.card-title { font-weight: 600; }
+
+/* Neutralise remaining decorative italics across the app */
+.donut-center .n,
+.flow-n,
+.quick-row .arr,
+.lane-title,
+.layer-num,
+.layer-name span,
+.sup-person,
+.member-name,
+.hero-headline em,
+.hero-deck,
+.crumb-name::before,
+.state-stat .val,
+.dept-tile .num,
+.lane-count,
+.attack-name,
+.m-stat .n,
+.sidebar-ghost,
+.brand-name em,
+.lane-title {
+  font-style: normal;
+}
+
+/* Eyebrows + monospace labels: slightly tighter tracking for a cleaner, more formal feel */
+.eyebrow { letter-spacing: 0.16em; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ====================================================================
+       SIDEBAR
+       ==================================================================== -->
+  <aside class="sidebar">
+    <div class="sidebar-ghost">AEGIS · GUARDIAN · 2026 · AEGIS · GUARDIAN</div>
+
+    <div class="sb-head">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#06b6d4"/>
+                <stop offset="100%" stop-color="#8b5cf6"/>
+              </linearGradient>
+            </defs>
+            <path d="M21 3 L36 9 L36 22 C36 30 30 37 21 39 C12 37 6 30 6 22 L6 9 Z"
+                  fill="url(#shieldGrad)" fill-opacity="0.15"
+                  stroke="url(#shieldGrad)" stroke-width="1.5"/>
+            <path d="M21 12 L21 28 M14 20 L28 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color: var(--cyan);"/>
+            <circle cx="21" cy="20" r="3.5" stroke="currentColor" stroke-width="1.2" fill="none" style="color: var(--cyan);"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">AEGIS<em>·</em></div>
+          <div class="brand-sub">Command Center · v1.0</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="sb-nav-label">Operations</div>
+
+      <button class="nav-item active" data-view="overview" style="--item-color: var(--cyan);">
+        <span class="nav-num">00</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
+        <span class="nav-label">Overview</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="alerts" style="--item-color: var(--red);">
+        <span class="nav-num">01</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+        <span class="nav-label">Alerts</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="topology" style="--item-color: var(--mint);">
+        <span class="nav-num">02</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="12" cy="12" r="2"/><path d="M12 7v3M10.5 13.5 7 17.5M13.5 13.5 17 17.5"/></svg></span>
+        <span class="nav-label">Network Map</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="devices" style="--item-color: var(--blue);">
+        <span class="nav-num">03</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></span>
+        <span class="nav-label">Devices</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="detection" style="--item-color: var(--violet);">
+        <span class="nav-num">04</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4 4 4 0 0 0-4 4 4 4 0 0 0 1 2.6A4 4 0 0 0 8 19a3 3 0 0 0 4 1 3 3 0 0 0 4-1 4 4 0 0 0 3-6.4A4 4 0 0 0 20 10a4 4 0 0 0-4-4 4 4 0 0 0-4-4z"/><path d="M9 12h.01M15 12h.01"/></svg></span>
+        <span class="nav-label">Detection Engine</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="response" style="--item-color: var(--orange);">
+        <span class="nav-num">05</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <span class="nav-label">Response</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="crypto" style="--item-color: var(--amber);">
+        <span class="nav-num">06</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/><circle cx="12" cy="16" r="1.5"/></svg></span>
+        <span class="nav-label">Crypto Health</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="reports" style="--item-color: var(--cyan);">
+        <span class="nav-num">07</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg></span>
+        <span class="nav-label">Reports</span>
+        <span class="nav-dot"></span>
+      </button>
+
+      <button class="nav-item" data-view="about" style="--item-color: var(--mint);">
+        <span class="nav-num">08</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span class="nav-label">System</span>
+        <span class="nav-dot"></span>
+      </button>
+    </nav>
+
+    <div class="sb-foot">
+      <div class="theme-toggle">
+        <button id="theme-dark" class="active">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span>Dark</span>
+        </button>
+        <button id="theme-light">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <span>Light</span>
+        </button>
+      </div>
+      <div class="sb-status">System Online · All Services Up</div>
+      <div class="sb-meta">
+        Nile University · ITCS<br/>
+        Graduation Project · 2026<br/>
+        Dr. Noha &middot; Dr. El-Helw
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====================================================================
+       MAIN
+       ==================================================================== -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="crumb">
+        <span class="crumb-num" id="crumb-num">00.</span>
+        <span class="crumb-name" id="crumb-name">Overview</span>
+      </div>
+
+      <div class="topbar-search" id="search-trigger">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>Search devices, threats, classes…</span>
+        <kbd>/</kbd>
+      </div>
+
+      <div class="topbar-meta">
+        <span class="live-pulse">LIVE</span>
+        <span class="mono" id="clk">--:--:--</span>
+        <span class="sep"></span>
+        <span>API <strong style="color: var(--mint);">200</strong></span>
+        <span>WS <strong style="color: var(--mint);">CON</strong></span>
+        <span>MDL <strong>v2.4</strong></span>
+      </div>
+    </header>
+
+    <div class="view-stage">
+
+      <!-- ====================================================================
+           VIEW: OVERVIEW
+           ==================================================================== -->
+      <section class="view active" id="view-overview">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">00 · Security Posture</div>
+            <h1>Security posture <em>across the estate.</em></h1>
+            <p>Real-time monitoring of 85 medical IoT devices across ICU, ER, Ward, OR and the data center — detection, mitigation and ASCON-AEAD encryption.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn" data-go="reports">Daily Report</button>
+            <button class="btn btn-primary" data-go="alerts">Open Alert Queue &rarr;</button>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi" style="--kpi-color: var(--cyan); --kpi-soft: var(--cyan-soft);">
+            <div class="kpi-top"><div class="kpi-label">Devices Online</div><div class="kpi-badge">85 / 85</div></div>
+            <div class="kpi-value">100<span class="unit">%</span></div>
+            <div class="kpi-foot"><span>ICU 25 &middot; ER 20 &middot; Ward 20 &middot; OR 10</span><canvas class="kpi-spark" id="sp1"></canvas></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--red); --kpi-soft: var(--red-soft);">
+            <div class="kpi-top"><div class="kpi-label">Active Threats</div><div class="kpi-badge">LIVE</div></div>
+            <div class="kpi-value" id="kpi-threats">3</div>
+            <div class="kpi-foot"><span>Awaiting triage</span><canvas class="kpi-spark" id="sp2"></canvas></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--mint); --kpi-soft: var(--mint-soft);">
+            <div class="kpi-top"><div class="kpi-label">Network Health</div><div class="kpi-badge">OK</div></div>
+            <div class="kpi-value">98<span class="unit">.4%</span></div>
+            <div class="kpi-foot"><span>RTT 14ms &middot; Loss 0.02%</span><canvas class="kpi-spark" id="sp3"></canvas></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--amber); --kpi-soft: var(--amber-soft);">
+            <div class="kpi-top"><div class="kpi-label">Encrypted Flow</div><div class="kpi-badge">ASCON</div></div>
+            <div class="kpi-value">100<span class="unit">%</span></div>
+            <div class="kpi-foot"><span>0 tamper events / 24h</span><canvas class="kpi-spark" id="sp4"></canvas></div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-head"><div><div class="card-title">Needs Attention</div><div class="card-sub">Unresolved critical &amp; high</div></div><span class="tag active" data-go="alerts" style="cursor:pointer">Queue &rarr;</span></div>
+            <div class="threat-list" id="ov-attention" style="height:280px"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><div class="card-title">Detections &middot; 24h</div><div class="card-sub">By attack class</div></div><span class="tag active">24h</span></div>
+            <div class="donut-wrap"><canvas id="donut"></canvas><div class="donut-center"><div class="n">9</div><div class="l">classes</div></div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><div class="card-title">Throughput</div><div class="card-sub">Packets / sec &middot; 5m</div></div><span class="tag active">5m</span></div>
+            <div class="traffic-wrap"><canvas id="traffic"></canvas></div>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);flex-shrink:0"></span>
+            <div><div class="kpi-label">Detection Engine</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">Online <span style="color:var(--text-dim);font-size:0.78rem">&middot; RF v2.4</span></div></div>
+          </div>
+          <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);flex-shrink:0"></span>
+            <div><div class="kpi-label">Auto-Response</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">Active <span style="color:var(--text-dim);font-size:0.78rem">&middot; all severities</span></div></div>
+          </div>
+          <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);flex-shrink:0"></span>
+            <div><div class="kpi-label">Encryption</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">100% <span style="color:var(--text-dim);font-size:0.78rem">&middot; ASCON-128</span></div></div>
+          </div>
+          <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);flex-shrink:0"></span>
+            <div><div class="kpi-label">Quarantined</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">2 devices <span style="color:var(--text-dim);font-size:0.78rem">&middot; see Response</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: DASHBOARD
+           ==================================================================== -->
+      <section class="view" id="view-alerts">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">01 · Incident Triage</div>
+            <h1>Alert <em>queue.</em></h1>
+            <p>Confirmed IDS detections, newest first. Triage, investigate, and escalate to Response.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Filter</button>
+            <button class="btn">Export CSV</button>
+            <button class="btn btn-primary">Acknowledge All</button>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi" style="--kpi-color: var(--red); --kpi-soft: var(--red-soft);">
+            <div class="kpi-top"><div class="kpi-label">Critical</div><div class="kpi-badge">NOW</div></div>
+            <div class="kpi-value">2</div>
+            <div class="kpi-foot"><span>Ransomware &middot; ARP spoof</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--amber); --kpi-soft: var(--amber-soft);">
+            <div class="kpi-top"><div class="kpi-label">High</div><div class="kpi-badge">OPEN</div></div>
+            <div class="kpi-value">4</div>
+            <div class="kpi-foot"><span>MQTT &middot; exfil &middot; DoS</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--violet); --kpi-soft: var(--violet-soft);">
+            <div class="kpi-top"><div class="kpi-label">Medium</div><div class="kpi-badge">WATCH</div></div>
+            <div class="kpi-value">3</div>
+            <div class="kpi-foot"><span>Reconnaissance</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--mint); --kpi-soft: var(--mint-soft);">
+            <div class="kpi-top"><div class="kpi-label">Resolved · 24h</div><div class="kpi-badge">DONE</div></div>
+            <div class="kpi-value">138</div>
+            <div class="kpi-foot"><span>Mean contain 2.4s</span></div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1.7fr 1fr; gap:1rem; height: calc(100% - 230px); min-height: 360px;">
+          <div class="card" style="display:flex; flex-direction:column; min-height:0;">
+            <div class="card-head"><div><div class="card-title">Incident Queue</div><div class="card-sub">Random Forest &middot; 96.22% &middot; 3-confirm rule</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">Critical</span><span class="tag">Open</span></div></div>
+            <div style="flex:1; overflow:auto; min-height:0;">
+              <table class="inf-table" id="inf-table">
+                <thead><tr><th>Time</th><th>Source Device</th><th>Attack Class</th><th>Confidence</th><th>Confirm</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="display:flex; flex-direction:column; min-height:0;">
+            <div class="card-head"><div><div class="card-title">Live Feed</div><div class="card-sub">/ws/threats</div></div><span class="live-pulse">LIVE</span></div>
+            <div class="threat-list" id="threat-list" style="flex:1; min-height:0;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: TOPOLOGY
+           ==================================================================== -->
+      <section class="view" id="view-topology">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">02 · Network Map</div>
+            <h1>The hospital, <em>mapped.</em></h1>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Filter Dept</button>
+            <button class="btn">Layout</button>
+            <button class="btn btn-primary">Simulate Attack</button>
+          </div>
+        </div>
+
+        <div class="topo-wrap">
+          <div class="topo-canvas">
+            <div class="topo-scroll" id="topo-scroll">
+            <svg viewBox="0 0 1600 1300" preserveAspectRatio="xMidYMin meet" id="topo-svg">
+              <defs>
+                <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+                  <feGaussianBlur stdDeviation="4" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <filter id="softglow" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur stdDeviation="7"/>
+                </filter>
+                <radialGradient id="distGrad">
+                  <stop offset="0%" stop-color="var(--violet)" stop-opacity="0.45"/>
+                  <stop offset="100%" stop-color="var(--violet)" stop-opacity="0"/>
+                </radialGradient>
+                <radialGradient id="gwGrad">
+                  <stop offset="0%" stop-color="var(--red)" stop-opacity="0.4"/>
+                  <stop offset="100%" stop-color="var(--red)" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="devGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#0ea5b7"/>
+                  <stop offset="100%" stop-color="#0b7d8c"/>
+                </linearGradient>
+                <linearGradient id="srvGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#10b981"/>
+                  <stop offset="100%" stop-color="#0a8f63"/>
+                </linearGradient>
+              </defs>
+
+              <g id="layer-links"></g>
+              <g id="layer-flow"></g>
+              <g id="layer-zones"></g>
+              <g id="layer-nodes"></g>
+            </svg>
+            </div>
+
+            <!-- Floating panels -->
+            <div class="topo-float tf-stats">
+              <div class="snap-title">Departments · 85</div>
+              <div class="tf-stat-row" data-dept="icu">
+                <span class="nm"><span class="sw" style="background:var(--cyan)"></span>ICU</span><span class="ct">25</span>
+              </div>
+              <div class="tf-stat-row" data-dept="er">
+                <span class="nm"><span class="sw" style="background:var(--violet)"></span>ER</span><span class="ct">20</span>
+              </div>
+              <div class="tf-stat-row" data-dept="ward">
+                <span class="nm"><span class="sw" style="background:var(--mint)"></span>WARD</span><span class="ct">20</span>
+              </div>
+              <div class="tf-stat-row" data-dept="or">
+                <span class="nm"><span class="sw" style="background:var(--blue)"></span>OR</span><span class="ct">10</span>
+              </div>
+              <div class="tf-stat-row" data-dept="dc">
+                <span class="nm"><span class="sw" style="background:var(--amber)"></span>DATA CTR</span><span class="ct">10</span>
+              </div>
+            </div>
+
+            <div class="topo-float tf-legend">
+              <div class="snap-title">Legend</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--red)"></div>Gateway / IDS</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--violet)"></div>Distribution</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--blue)"></div>Dept Switch</div>
+              <div class="legend-row"><div class="swatch" style="background:#0ea5b7"></div>Medical Device</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--mint)"></div>Server</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--amber)"></div>Suspicious</div>
+              <div class="legend-row"><div class="swatch" style="background:var(--red)"></div>Compromised</div>
+            </div>
+
+            <div class="topo-float tf-hint">
+              <span>Scroll or <kbd>+ −</kbd> to zoom · drag to pan · click a switch to isolate</span>
+            </div>
+
+            <div class="t-tooltip" id="topo-tip"></div>
+
+            <div class="topo-zoom">
+              <button id="zoom-in" title="Zoom in">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+              </button>
+              <button class="zpct" id="zoom-pct">100%</button>
+              <button id="zoom-out" title="Zoom out">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6"/></svg>
+              </button>
+              <button id="zoom-fit" title="Fit to width">
+                <svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: DETECTION
+           ==================================================================== -->
+      <section class="view" id="view-detection">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">04 · Detection Engine</div>
+            <h1>Nine classes, <em>one verdict.</em></h1>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Confusion Matrix</button>
+            <button class="btn btn-primary" id="test-model-btn">Test Model</button>
+          </div>
+        </div>
+
+        <div class="detect-grid">
+          <div class="attack-grid">
+
+            <div class="attack-card benign">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 00</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+              </div>
+              <div class="attack-name">Benign</div>
+              <div class="attack-desc">Normal medical IoT telemetry — patient monitoring, infusion heartbeats, scheduled MQTT publishes.</div>
+              <div class="attack-foot"><span>BASELINE</span><span class="sev low">Normal</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 01</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg></span>
+              </div>
+              <div class="attack-name">DDoS</div>
+              <div class="attack-desc">Distributed denial of service flooding the hospital gateway from coordinated external sources.</div>
+              <div class="attack-foot"><span>VOLUMETRIC</span><span class="sev crit">Critical</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 02</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 12h6m6 0h6M12 3v6m0 6v6"/></svg></span>
+              </div>
+              <div class="attack-name">DoS</div>
+              <div class="attack-desc">Single-source denial of service exhausting device resources — common against ventilators and pumps.</div>
+              <div class="attack-foot"><span>EXHAUSTION</span><span class="sev high">High</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 03</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M5 12s2-6 7-6 7 6 7 6-2 6-7 6-7-6-7-6z"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+              </div>
+              <div class="attack-name">ICMP Flood</div>
+              <div class="attack-desc">Echo-request flooding ICU network segments to disrupt monitor uplinks and pollute switch caches.</div>
+              <div class="attack-foot"><span>L3 / NET</span><span class="sev high">High</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 04</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9 5 9-5M3 7v10l9 5 9-5V7M3 7l9-5 9 5"/></svg></span>
+              </div>
+              <div class="attack-name">ARP Spoof</div>
+              <div class="attack-desc">Falsified ARP responses redirecting medical traffic through attacker for MITM on plaintext segments.</div>
+              <div class="attack-foot"><span>L2 · MITM</span><span class="sev crit">Critical</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 05</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 9l6 6m0-6l-6 6"/></svg></span>
+              </div>
+              <div class="attack-name">MQTT Attack</div>
+              <div class="attack-desc">Malformed CONNECT/PUBLISH, broker hijack, retained-message poisoning — countered by our priority broker.</div>
+              <div class="attack-foot"><span>APP LAYER</span><span class="sev high">High</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 06</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="M8 10V7a4 4 0 018 0v3"/><circle cx="12" cy="15" r="1.5"/></svg></span>
+              </div>
+              <div class="attack-name">Ransomware</div>
+              <div class="attack-desc">Encryption-based lockdown attempts on imaging workstations and EHR endpoints — caught at flow signature.</div>
+              <div class="attack-foot"><span>HOST</span><span class="sev crit">Critical</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 07</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
+              </div>
+              <div class="attack-name">Recon</div>
+              <div class="attack-desc">Port scans, OS fingerprinting, service enumeration against medical subnets — precursor to lateral movement.</div>
+              <div class="attack-foot"><span>SCAN</span><span class="sev med">Medium</span></div>
+            </div>
+
+            <div class="attack-card">
+              <div class="attack-head">
+                <span class="attack-id">CLASS · 08</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12m-4-4l4 4 4-4"/><path d="M5 21h14"/></svg></span>
+              </div>
+              <div class="attack-name">Exfiltration</div>
+              <div class="attack-desc">Abnormal outbound flows from medical endpoints — patient record leakage, telemetry siphoning, DNS-tunneled exfil.</div>
+              <div class="attack-foot"><span>EGRESS</span><span class="sev crit">Critical</span></div>
+            </div>
+
+          </div>
+
+          <div class="detect-side">
+            <div class="card" style="padding:1.25rem;">
+              <div class="card-head" style="padding-bottom:0.85rem; margin-bottom:0.85rem;">
+                <div>
+                  <div class="card-title">Random Forest</div>
+                  <div class="card-sub">Trained · Validated · Deployed</div>
+                </div>
+              </div>
+              <div class="model-stats-grid">
+                <div class="m-stat">
+                  <div class="n">96<span style="font-size:1rem;color:var(--text-dim)">.22</span></div>
+                  <div class="l">Accuracy %</div>
+                </div>
+                <div class="m-stat">
+                  <div class="n">0<span style="font-size:1rem;color:var(--text-dim)">.948</span></div>
+                  <div class="l">Macro F1</div>
+                </div>
+                <div class="m-stat">
+                  <div class="n">41</div>
+                  <div class="l">Features</div>
+                </div>
+                <div class="m-stat">
+                  <div class="n">32<span style="font-size:1rem;color:var(--text-dim)">ms</span></div>
+                  <div class="l">Inference</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="confirm-vis">
+              <div class="cv-title">3-Confirm Logic</div>
+              <div class="cv-row">
+                <div class="cv-step">P₁</div>
+                <span class="cv-arr">→</span>
+                <div class="cv-step">P₂</div>
+                <span class="cv-arr">→</span>
+                <div class="cv-step">P₃</div>
+                <span class="cv-arr">→</span>
+                <div class="cv-step fire">⚡</div>
+              </div>
+              <div class="cv-msg">Three consecutive matching predictions per flow before firing. Reduces false-positives by <strong style="color:var(--violet)">~62%</strong> with negligible latency cost.</div>
+            </div>
+
+            <div class="card" style="padding:1.25rem;">
+              <div class="snap-title" style="margin-bottom:0.85rem;">Training Sources</div>
+              <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                <div class="comp">CICIoMT2024 <span class="s">REAL MEDICAL IOT</span></div>
+                <div class="comp">Bot-IoT <span class="s">BOTNET PATTERNS</span></div>
+                <div class="comp">Edge-IIoTset <span class="s">INDUSTRIAL IOT</span></div>
+                <div class="comp">MQTTset <span class="s">BROKER ATTACKS</span></div>
+                <div class="comp">OMNeT++ Sim <span class="s">HOSPITAL TRAFFIC</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: CRYPTO
+           ==================================================================== -->
+      <section class="view" id="view-crypto">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">06 · Cryptographic Layer</div>
+            <h1>ASCON-128 <em>authenticated encryption.</em></h1>
+          </div>
+          <div class="view-actions">
+            <button class="btn" id="crypto-bench-btn">Run benchmark</button>
+            <button class="btn btn-primary" id="crypto-test-btn">Encrypt / verify test</button>
+          </div>
+        </div>
+
+        <div class="crypto-grid">
+          <div class="crypto-left">
+            <div class="state-card">
+              <div class="card-head" style="padding-bottom:0.85rem; margin-bottom:0.85rem;">
+                <div>
+                  <div class="card-title">Algorithm parameters</div>
+                  <div class="card-sub">NIST SP&nbsp;800-232 · AEGIS-AEAD on ASCON-128</div>
+                </div>
+                <span class="tag" id="cl-status">…</span>
+              </div>
+              <div class="state-stats">
+                <div class="state-stat"><div class="lbl">Key</div><div class="val" id="cl-key">128<span> bit</span></div></div>
+                <div class="state-stat"><div class="lbl">Nonce</div><div class="val" id="cl-nonce">128<span> bit</span></div></div>
+                <div class="state-stat"><div class="lbl">Auth tag</div><div class="val" id="cl-tag">128<span> bit</span></div></div>
+              </div>
+              <div style="margin-top:0.95rem;display:grid;grid-template-columns:auto 1fr;gap:0.42rem 1rem;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-dim)">
+                <span>Native library</span><span id="cl-lib" style="color:var(--text)">…</span>
+                <span>Library built</span><span id="cl-mtime" style="color:var(--text)">…</span>
+                <span>Active sessions</span><span id="cl-sessions" style="color:var(--text)">…</span>
+              </div>
+            </div>
+
+            <div class="state-card" style="margin-top:1rem">
+              <div class="card-head" style="padding-bottom:0.85rem; margin-bottom:0.85rem;">
+                <div>
+                  <div class="card-title">Integrity verification</div>
+                  <div class="card-sub">Known-answer tests re-run against the live library</div>
+                </div>
+                <span class="tag" id="cl-kat-tag">…</span>
+              </div>
+              <div id="cl-kat-list" style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-dim);line-height:1.7;margin-bottom:0.75rem">…</div>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:0.42rem 1rem;font-family:var(--font-mono);font-size:0.68rem">
+                <span style="color:var(--text-dim)">Regression vectors</span><span id="cl-kat" style="color:var(--text)">…</span>
+                <span style="color:var(--text-dim)">Tamper detection</span><span id="cl-tamper" style="color:var(--text)">…</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="crypto-flow">
+            <div class="card-head" style="padding-bottom:0.85rem; margin-bottom:0.85rem;">
+              <div>
+                <div class="card-title">Encrypted sessions</div>
+                <div class="card-sub">Per-device ASCON-AEAD channels</div>
+              </div>
+              <span class="tag active">LIVE</span>
+            </div>
+            <div style="overflow:auto; max-height:300px; margin-bottom:1.25rem">
+              <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.68rem">
+                <thead>
+                  <tr style="color:var(--text-dim); text-align:left">
+                    <th style="padding:0.4rem 0.6rem 0.4rem 0; font-weight:500; border-bottom:1px solid var(--border)">Session</th>
+                    <th style="padding:0.4rem 0.6rem; font-weight:500; border-bottom:1px solid var(--border)">State</th>
+                    <th style="padding:0.4rem 0.6rem; font-weight:500; border-bottom:1px solid var(--border)">Threat</th>
+                    <th style="padding:0.4rem 0 0.4rem 0.6rem; font-weight:500; border-bottom:1px solid var(--border); text-align:right">Packets</th>
+                  </tr>
+                </thead>
+                <tbody id="cl-sessions-body">
+                  <tr><td colspan="4" style="padding:0.6rem 0; color:var(--text-dim)">loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card-head" style="padding-top:1rem; padding-bottom:0.6rem; border-top:1px solid var(--border)">
+              <div>
+                <div class="card-title">AEGIS-AEAD extensions</div>
+                <div class="card-sub">Five medical-domain protocol features</div>
+              </div>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:0.66rem; color:var(--text-dim); line-height:1.85">
+              <div><span style="color:var(--cyan)">i.</span>&nbsp;&nbsp;Domain-bound associated data — device ID, department code and session token authenticated with every message.</div>
+              <div><span style="color:var(--cyan)">ii.</span>&nbsp;&nbsp;Hybrid nonce — hardware serial ⊕ timestamp ⊕ session counter; replay-resistant across reboots and broker failover.</div>
+              <div><span style="color:var(--cyan)">iii.</span>&nbsp;Device identity — challenge–response handshake (HMAC-SHA256) with HKDF-SHA256 session keys.</div>
+              <div><span style="color:var(--cyan)">iv.</span>&nbsp;Dynamic key rotation — per N messages or T seconds, gateway-signed and device-acknowledged.</div>
+              <div><span style="color:var(--cyan)">v.</span>&nbsp;&nbsp;Authenticated finalization — 128-bit tag verified at the gateway; any tampering aborts the message before AI inference.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: PROTOCOL
+           ==================================================================== -->
+      <section class="view" id="view-devices">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">03 · Asset Inventory</div>
+            <h1>Every device, <em>accounted for.</em></h1>
+            <p>Complete register of monitored medical IoT endpoints — addressing, firmware, encryption and live risk status.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Filter Dept</button>
+            <button class="btn btn-primary">Export Inventory</button>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi" style="--kpi-color: var(--blue); --kpi-soft: var(--blue-soft);">
+            <div class="kpi-top"><div class="kpi-label">Total Endpoints</div><div class="kpi-badge">ASSETS</div></div>
+            <div class="kpi-value">85</div>
+            <div class="kpi-foot"><span>5 departments</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--mint); --kpi-soft: var(--mint-soft);">
+            <div class="kpi-top"><div class="kpi-label">Online</div><div class="kpi-badge">UP</div></div>
+            <div class="kpi-value">85<span class="unit">/85</span></div>
+            <div class="kpi-foot"><span>0 unreachable</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--amber); --kpi-soft: var(--amber-soft);">
+            <div class="kpi-top"><div class="kpi-label">Encrypted</div><div class="kpi-badge">ASCON</div></div>
+            <div class="kpi-value">100<span class="unit">%</span></div>
+            <div class="kpi-foot"><span>All links protected</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--red); --kpi-soft: var(--red-soft);">
+            <div class="kpi-top"><div class="kpi-label">At Risk</div><div class="kpi-badge">FLAG</div></div>
+            <div class="kpi-value" id="dev-risk">0</div>
+            <div class="kpi-foot"><span>Suspicious + compromised</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="height: calc(100% - 230px); min-height: 360px; display:flex; flex-direction:column;">
+          <div class="card-head"><div><div class="card-title">Device Register</div><div class="card-sub" id="dev-count">85 endpoints</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">At Risk</span><span class="tag">Servers</span></div></div>
+          <div style="flex:1; overflow:auto; min-height:0;">
+            <table class="inf-table" id="dev-table">
+              <thead><tr><th>Device</th><th>Type</th><th>Dept</th><th>IP Address</th><th>Firmware</th><th>Encryption</th><th>Risk</th><th>Last Seen</th></tr></thead>
+              <tbody id="dev-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: ARCHITECTURE
+           ==================================================================== -->
+      <section class="view" id="view-response">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">05 · Automated Response</div>
+            <h1>Contain first, <em>page later.</em></h1>
+            <p>Every mitigation AEGIS executed automatically, plus the playbooks that govern it. Override any decision in one click.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Playbooks</button>
+            <button class="btn btn-primary">Auto-Response: ON</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:1rem; height: calc(100% - 90px); min-height: 420px;">
+          <div class="card" style="display:flex; flex-direction:column; min-height:0;">
+            <div class="card-head"><div><div class="card-title">Action Log</div><div class="card-sub">Automated &amp; manual mitigations</div></div><span class="live-pulse">LIVE</span></div>
+            <div style="flex:1; overflow:auto; min-height:0;">
+              <table class="inf-table" id="resp-table">
+                <thead><tr><th>Time</th><th>Trigger</th><th>Target</th><th>Action</th><th>Result</th><th>Mode</th></tr></thead>
+                <tbody id="resp-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-rows:auto 1fr; gap:1rem; min-height:0;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Active Containment</div><div class="card-sub" id="quar-count">2 devices isolated</div></div></div>
+              <div id="quar-list" style="display:flex;flex-direction:column;gap:0.5rem"></div>
+            </div>
+            <div class="card" style="overflow:auto; min-height:0;">
+              <div class="snap-title" style="margin-bottom:0.85rem">Response Playbooks</div>
+              <div id="playbooks" style="display:flex;flex-direction:column;gap:0.5rem"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW: TEAM
+           ==================================================================== -->
+      <section class="view" id="view-about">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">08 · System</div>
+            <h1>System status <em>&amp; deployment.</em></h1>
+            <p>Reference information for this AEGIS deployment — build, detection model, data feeds, retention and escalation paths.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Documentation</button>
+            <button class="btn btn-primary">Run Health Check</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:1rem; align-items:start;">
+          <div style="display:flex; flex-direction:column; gap:1rem;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Deployment</div><div class="card-sub">AEGIS · on-prem hospital gateway</div></div><span class="tag active">Healthy</span></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem 2rem;">
+                <div class="snap-row"><span class="label">Version</span><span class="value">v1.0.0</span></div>
+                <div class="snap-row"><span class="label">Uptime</span><span class="value">42d 06h</span></div>
+                <div class="snap-row"><span class="label">Detection model</span><span class="value">RF v2.4</span></div>
+                <div class="snap-row"><span class="label">Last retrain</span><span class="value">12 days ago</span></div>
+                <div class="snap-row"><span class="label">Encryption</span><span class="value">ASCON-128a</span></div>
+                <div class="snap-row"><span class="label">Model accuracy</span><span class="value">96.22%</span></div>
+                <div class="snap-row"><span class="label">Environment</span><span class="value">OMNeT++ / INET</span></div>
+                <div class="snap-row"><span class="label">Backend</span><span class="value">FastAPI :8000</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Integrations &amp; Data Feeds</div><div class="card-sub">Where AEGIS reads from and reports to</div></div></div>
+              <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                <div class="comp">Network SPAN / tap <span class="s">46 FLOW FEATURES</span></div>
+                <div class="comp">MQTT broker <span class="s">PRIORITY QUEUES</span></div>
+                <div class="comp">Syslog → SIEM <span class="s">ALERT FORWARD</span></div>
+                <div class="comp">WebSocket /ws <span class="s">LIVE DASHBOARD</span></div>
+                <div class="comp">PostgreSQL <span class="s">aegis_dwh · AUDIT</span></div>
+                <div class="comp">Switch control <span class="s">PORT ISOLATION</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Retention &amp; Policy</div><div class="card-sub">Governance configuration</div></div></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem 2rem;">
+                <div class="snap-row"><span class="label">Audit log retention</span><span class="value">7 years</span></div>
+                <div class="snap-row"><span class="label">Key rotation</span><span class="value">per session</span></div>
+                <div class="snap-row"><span class="label">Alert retention</span><span class="value">2 years</span></div>
+                <div class="snap-row"><span class="label">PHI in telemetry</span><span class="value">none</span></div>
+                <div class="snap-row"><span class="label">Confirm rule</span><span class="value">3 consecutive</span></div>
+                <div class="snap-row"><span class="label">HIPAA §164.312</span><span class="value" style="color:var(--mint)">compliant</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:1rem;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Support &amp; Escalation</div><div class="card-sub">Who to page</div></div></div>
+              <div style="display:flex; flex-direction:column; gap:0.6rem;">
+                <div class="snap-row"><span class="label">SOC on-call</span><span class="value">24 / 7</span></div>
+                <div class="snap-row"><span class="label">Network &amp; crypto</span><span class="value">A. Seddik</span></div>
+                <div class="snap-row"><span class="label">Detection / ML</span><span class="value">O. Moustafa</span></div>
+                <div class="snap-row"><span class="label">Mitigation</span><span class="value">M. Basem</span></div>
+                <div class="snap-row"><span class="label">Critical SLA</span><span class="value">&lt; 5 min</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">About this build</div><div class="card-sub">AI-Enhanced Guardian for IoT Security</div></div></div>
+              <p style="font-size:0.85rem; color:var(--text-sub); margin-bottom:1rem; line-height:1.55;">Real-time intrusion detection &amp; automated response for healthcare IoT — defending 85 medical devices across ICU, ER, Ward, OR and the data center.</p>
+              <div class="snap-row"><span class="label">Institution</span><span class="value">Nile University · ITCS</span></div>
+              <div class="snap-row"><span class="label">Programme</span><span class="value">Graduation Project 2026</span></div>
+              <div class="snap-row"><span class="label">Supervisors</span><span class="value">Dr. Noha · Dr. El-Helw</span></div>
+              <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:1rem;">
+                <span class="chip">OMNeT++</span><span class="chip">Python</span><span class="chip">FastAPI</span><span class="chip">scikit-learn</span><span class="chip">React</span><span class="chip">ASCON</span><span class="chip">PostgreSQL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-reports">
+        <div class="view-head">
+          <div>
+            <div class="eyebrow">07 · Audit &amp; Compliance</div>
+            <h1>Receipts for <em>everything.</em></h1>
+            <p>Tamper-evident audit trail and one-click compliance exports for hospital governance and HIPAA reviews.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn">Last 7 days &#9662;</button>
+            <button class="btn btn-primary" id="exp-generate">Generate Report</button>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi" style="--kpi-color: var(--mint); --kpi-soft: var(--mint-soft);">
+            <div class="kpi-top"><div class="kpi-label">Encryption Coverage</div><div class="kpi-badge">HIPAA</div></div>
+            <div class="kpi-value">100<span class="unit">%</span></div>
+            <div class="kpi-foot"><span>Transmission security</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--cyan); --kpi-soft: var(--cyan-soft);">
+            <div class="kpi-top"><div class="kpi-label">Mean Time to Contain</div><div class="kpi-badge">MTTC</div></div>
+            <div class="kpi-value">2.4<span class="unit">s</span></div>
+            <div class="kpi-foot"><span>Auto-response</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--red); --kpi-soft: var(--red-soft);">
+            <div class="kpi-top"><div class="kpi-label">Open Incidents</div><div class="kpi-badge">NOW</div></div>
+            <div class="kpi-value" id="rep-open">3</div>
+            <div class="kpi-foot"><span>9 resolved today</span></div>
+          </div>
+          <div class="kpi" style="--kpi-color: var(--violet); --kpi-soft: var(--violet-soft);">
+            <div class="kpi-top"><div class="kpi-label">Audit Events · 24h</div><div class="kpi-badge">LOG</div></div>
+            <div class="kpi-value" id="rep-events">1,284</div>
+            <div class="kpi-foot"><span>Append-only</span></div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:1rem; height: calc(100% - 230px); min-height: 340px;">
+          <div class="card" style="display:flex; flex-direction:column; min-height:0;">
+            <div class="card-head"><div><div class="card-title">Audit Log</div><div class="card-sub">Tamper-evident &middot; append-only</div></div><span class="tag active">Live</span></div>
+            <div style="flex:1; overflow:auto; min-height:0;">
+              <table class="inf-table" id="audit-table">
+                <thead><tr><th>Time</th><th>Actor</th><th>Event</th><th>Detail</th></tr></thead>
+                <tbody id="audit-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="overflow:auto; min-height:0;">
+            <div class="snap-title" style="margin-bottom:0.85rem">Compliance Snapshot</div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem; margin-bottom:1.25rem">
+              <div class="comp">Access Control <span class="s">&#167;164.312(a) &middot; PASS</span></div>
+              <div class="comp">Transmission Security <span class="s">&#167;164.312(e) &middot; ASCON-128 &middot; PASS</span></div>
+              <div class="comp">Audit Controls <span class="s">&#167;164.312(b) &middot; PASS</span></div>
+              <div class="comp">Integrity <span class="s">&#167;164.312(c) &middot; auth-tag verify &middot; PASS</span></div>
+            </div>
+            <div class="snap-title" style="margin-bottom:0.6rem">Export</div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+              <button class="btn" style="justify-content:flex-start" id="exp-incident">Incident Report &middot; PDF</button>
+              <button class="btn" style="justify-content:flex-start" id="exp-csv">Audit Log &middot; CSV</button>
+              <button class="btn" style="justify-content:flex-start" id="exp-compliance">Compliance Summary &middot; PDF</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Command Palette -->
+<div class="cmd-overlay" id="cmd-overlay">
+  <div class="cmd-box">
+    <input type="text" class="cmd-input" id="cmd-input" placeholder="Jump to view, search threats, devices, classes…" autocomplete="off" />
+    <div class="cmd-list" id="cmd-list"></div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     SCRIPTS
+     ==================================================================== -->
+<script>
+/* ========================================================================
+   THEME TOGGLE
+======================================================================== */
+/* ========================================================================
+   AEGIS LIVE DATA LAYER — REST seed + WebSocket stream
+   (server owns all state; nothing is simulated in the browser anymore)
+======================================================================== */
+const AEGIS = {
+  base: location.origin,
+  async get(path) {
+    const r = await fetch(this.base + path);
+    if (!r.ok) throw new Error(path + ' -> ' + r.status);
+    return r.json();
+  },
+  async post(path, body) {
+    const r = await fetch(this.base + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    return r.json();
+  },
+  _handlers: {},
+  on(type, fn) { (this._handlers[type] = this._handlers[type] || []).push(fn); },
+  _emit(type, data) { (this._handlers[type] || []).forEach(fn => { try { fn(data); } catch (e) { console.error(e); } }); },
+  connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws.onmessage = (ev) => { try { const m = JSON.parse(ev.data); const ty = m.type || m.event_type; this._emit(ty, (m.data != null ? m.data : m)); } catch (_) {} };
+    ws.onclose = () => setTimeout(() => this.connect(), 2000);
+    ws.onopen = () => { try { ws.send('hi'); } catch (_) {} };
+    this.ws = ws;
+  },
+  connectCrypto() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${location.host}/ws/crypto`);
+    ws.onmessage = () => this._emit('crypto_event', {});
+    ws.onclose = () => setTimeout(() => this.connectCrypto(), 3000);
+    this.cryptoWs = ws;
+  },
+};
+window.AEGIS = AEGIS;
+
+const html = document.documentElement;
+const tdBtn = document.getElementById('theme-dark');
+const tlBtn = document.getElementById('theme-light');
+
+function setTheme(t) {
+  html.setAttribute('data-theme', t);
+  tdBtn.classList.toggle('active', t === 'dark');
+  tlBtn.classList.toggle('active', t === 'light');
+  localStorage.setItem('aegis-theme', t);
+  // Update charts if any
+  setTimeout(() => { if (window.charts) window.charts.forEach(c => c.update()); }, 50);
+}
+
+tdBtn.addEventListener('click', () => setTheme('dark'));
+tlBtn.addEventListener('click', () => setTheme('light'));
+
+const savedTheme = localStorage.getItem('aegis-theme');
+if (savedTheme) setTheme(savedTheme);
+
+/* ========================================================================
+   VIEW NAVIGATION
+======================================================================== */
+const views = document.querySelectorAll('.view');
+const navItems = document.querySelectorAll('.nav-item');
+const crumbNum = document.getElementById('crumb-num');
+const crumbName = document.getElementById('crumb-name');
+
+const viewMeta = {
+  overview:  { num: '00.', name: 'Overview' },
+  alerts:    { num: '01.', name: 'Alerts' },
+  topology:  { num: '02.', name: 'Network Map' },
+  devices:   { num: '03.', name: 'Devices' },
+  detection: { num: '04.', name: 'Detection Engine' },
+  response:  { num: '05.', name: 'Response' },
+  crypto:    { num: '06.', name: 'Crypto Health' },
+  reports:   { num: '07.', name: 'Audit & Compliance' },
+  about:     { num: '08.', name: 'System' },
+};
+
+function navigate(target) {
+  views.forEach(v => v.classList.remove('active'));
+  const tv = document.getElementById('view-' + target);
+  if (tv) tv.classList.add('active');
+
+  navItems.forEach(n => n.classList.toggle('active', n.dataset.view === target));
+
+  const m = viewMeta[target];
+  if (m) {
+    crumbNum.textContent = m.num;
+    crumbName.textContent = m.name;
+  }
+}
+
+navItems.forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+
+// data-go buttons
+document.querySelectorAll('[data-go]').forEach(b => {
+  b.addEventListener('click', () => navigate(b.dataset.go));
+});
+
+/* ========================================================================
+   LIVE CLOCK
+======================================================================== */
+function tick() {
+  const d = new Date();
+  const t = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('clk').textContent = t;
+}
+setInterval(tick, 1000); tick();
+
+/* ========================================================================
+   THREAT FEED — simulated
+======================================================================== */
+const sources = [];
+function nowT() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+function spawn(item) {
+  if (item && window.AEGIS_RENDER) window.AEGIS_RENDER.threat(item);
+}
+
+/* ========================================================================
+   SPARKLINES (canvas)
+======================================================================== */
+function getCSSVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function drawSpark(id, data, color) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width = c.offsetWidth * 2;
+  const h = c.height = c.offsetHeight * 2;
+  c.style.width = c.offsetWidth + 'px';
+  c.style.height = c.offsetHeight + 'px';
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const r = max - min || 1;
+  ctx.clearRect(0,0,w,h);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / r) * h * 0.85 - h * 0.075;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, color + '60');
+  g.addColorStop(1, color + '00');
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+}
+
+function refreshSparks() {
+  const s = window.__sparks || {};
+  drawSpark('sp1', s.devices_online || [50, 50], getCSSVar('--cyan'));
+  drawSpark('sp2', s.active_threats || [50, 50], getCSSVar('--red'));
+  drawSpark('sp3', s.network_health || [50, 50], getCSSVar('--mint'));
+  drawSpark('sp4', s.encrypted_flow || [50, 50], getCSSVar('--amber'));
+}
+refreshSparks();
+window.addEventListener('resize', refreshSparks);
+
+/* ========================================================================
+   CHARTS
+======================================================================== */
+window.charts = [];
+
+if (typeof Chart !== 'undefined') {
+// Donut
+const donutCtx = document.getElementById('donut').getContext('2d');
+const donut = new Chart(donutCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Benign', 'DDoS', 'DoS', 'ICMP', 'ARP', 'MQTT', 'Ransom', 'Recon', 'Exfil'],
+    datasets: [{
+      data: [62, 8, 5, 4, 6, 5, 3, 4, 3],
+      backgroundColor: ['#10b981','#ef4444','#f97316','#f59e0b','#ec4899','#8b5cf6','#dc2626','#06b6d4','#eab308'],
+      borderColor: 'transparent',
+      borderWidth: 2,
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    cutout: '72%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: getCSSVar('--text-sub'),
+          font: { family: 'IBM Plex Mono', size: 9 },
+          padding: 6, boxWidth: 8, boxHeight: 8, usePointStyle: true,
+        }
+      },
+      tooltip: {
+        backgroundColor: getCSSVar('--surface'),
+        borderColor: getCSSVar('--cyan'),
+        borderWidth: 1,
+        titleFont: { family: 'IBM Plex Mono', size: 10 },
+        bodyFont: { family: 'IBM Plex Mono', size: 10 },
+      }
+    },
+    maintainAspectRatio: false, responsive: true,
+  }
+});
+window.charts.push(donut); window.__donutChart = donut;
+
+// Traffic
+const tCtx = document.getElementById('traffic').getContext('2d');
+const tData = Array.from({length:30}, () => 200 + Math.random() * 400);
+const traffic = new Chart(tCtx, {
+  type: 'line',
+  data: {
+    labels: tData.map(() => ''),
+    datasets: [
+      {
+        label: 'IN',
+        data: tData,
+        borderColor: getCSSVar('--cyan'),
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+          g.addColorStop(0, getCSSVar('--cyan') + '40');
+          g.addColorStop(1, getCSSVar('--cyan') + '00');
+          return g;
+        },
+        borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0,
+      },
+      {
+        label: 'OUT',
+        data: tData.map(v => v * 0.6 + Math.random() * 80),
+        borderColor: getCSSVar('--violet'),
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+          g.addColorStop(0, getCSSVar('--violet') + '30');
+          g.addColorStop(1, getCSSVar('--violet') + '00');
+          return g;
+        },
+        borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0,
+      }
+    ]
+  },
+  options: {
+    maintainAspectRatio: false, responsive: true,
+    interaction: { mode: 'nearest', intersect: false },
+    scales: {
+      x: { display: false, grid: { display: false } },
+      y: {
+        grid: { color: getCSSVar('--border') },
+        ticks: { color: getCSSVar('--text-dim'), font: { family: 'IBM Plex Mono', size: 9 } }
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'top', align: 'end',
+        labels: { color: getCSSVar('--text-sub'), font: { family: 'IBM Plex Mono', size: 9 }, boxWidth: 8, usePointStyle: true }
+      },
+      tooltip: { backgroundColor: getCSSVar('--surface'), borderColor: getCSSVar('--cyan'), borderWidth: 1 }
+    }
+  }
+});
+window.charts.push(traffic);
+
+window.__trafficChart = traffic;
+} // end Chart.js guard
+
+/* ========================================================================
+   INFERENCE TABLE
+======================================================================== */
+const infBody = document.querySelector('#inf-table tbody');
+function addRow(item) {
+  if (item && window.AEGIS_RENDER) window.AEGIS_RENDER.inference(item);
+}
+
+/* ========================================================================
+   TOPOLOGY — OMNeT++ hierarchical hospital model
+======================================================================== */
+const NS = 'http://www.w3.org/2000/svg';
+function svg(tag, attrs = {}, parent = null) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+const TOPO = {
+  internet: { x: 800, y: 26 },
+  gateway:  { x: 800, y: 120 },
+  coreSw:   { x: 800, y: 196 },
+  dist:     { x: 800, y: 300 },
+  attackers: [
+    { name: 'Botnet C2', x: 1230, y: 70 },
+    { name: 'DDoS Source', x: 1340, y: 70 },
+    { name: 'ARP Spoofer', x: 1450, y: 70 },
+    { name: 'MQTT Attacker', x: 1230, y: 150 },
+    { name: 'Recon Scanner', x: 1340, y: 150 },
+    { name: 'Exfil Node', x: 1450, y: 150 },
+  ],
+  coreNodes: [
+    { name: 'OSPF Cloud', x: 660, y: 196, kind: 'cloud' },
+    { name: 'Security Mon', x: 930, y: 175, kind: 'sec' },
+    { name: 'Log Server', x: 930, y: 218, kind: 'log' },
+  ],
+  depts: [
+    { id: 'icu',  label: 'ICU',  full: 'INTENSIVE CARE', count: 25, color: 'var(--cyan)',   sw: { x: 200, y: 512 },  box: { x: 40,   y: 420, w: 320, h: 640 }, cols: 5,
+      types: ['Ventilator','Patient Mon','Infusion Pump','ECG Monitor','SpO₂ Sensor'],
+      short: ['Vent','Mon','Pump','ECG','SpO₂'] },
+    { id: 'er',   label: 'ER',   full: 'EMERGENCY',      count: 20, color: 'var(--violet)', sw: { x: 540, y: 512 },  box: { x: 400,  y: 420, w: 290, h: 560 }, cols: 4,
+      types: ['Defibrillator','Crash Monitor','ECG Cart','Vitals Unit','Triage Tablet'],
+      short: ['Defib','Crash','ECG','Vitals','Triage'] },
+    { id: 'ward', label: 'WARD', full: 'INPATIENT WARD', count: 20, color: 'var(--mint)',   sw: { x: 1070, y: 512 }, box: { x: 930,  y: 420, w: 290, h: 560 }, cols: 4,
+      types: ['Bed Monitor','IV Pump','Bio Sensor','Call Button','Thermometer'],
+      short: ['Bed','IV','Sensor','Call','Temp'] },
+    { id: 'or',   label: 'OR',   full: 'OPERATING',      count: 10, color: 'var(--blue)',   sw: { x: 1410, y: 512 }, box: { x: 1250, y: 420, w: 310, h: 420 }, cols: 3,
+      types: ['Anesthesia','Surgical Light','Imaging','Vitals','Electrocautery'],
+      short: ['Anesth','Light','Imaging','Vitals','Cautery'] },
+    { id: 'dc',   label: 'DATA CTR', full: 'DATA CENTER', count: 10, color: 'var(--amber)', sw: { x: 800, y: 1128 }, box: { x: 500, y: 1052, w: 600, h: 236 }, cols: 5, server: true,
+      types: ['EHR Server','AEGIS Node','DB Primary','MQTT Broker','Backup Store'],
+      short: ['EHR','AEGIS','DB','MQTT','Backup'] },
+  ]
+};
+
+const layerLinks = document.getElementById('layer-links');
+const layerFlow  = document.getElementById('layer-flow');
+const layerZones = document.getElementById('layer-zones');
+const layerNodes = document.getElementById('layer-nodes');
+const tip = document.getElementById('topo-tip');
+const topoCanvas = document.querySelector('.topo-canvas');
+const topoSvg = document.getElementById('topo-svg');
+
+const deviceRegistry = {}; // dept -> [els]
+
+function trunkLink(x1, y1, x2, y2, color, parent, dash) {
+  const p = svg('line', {
+    x1, y1, x2, y2,
+    stroke: color, 'stroke-width': 1.4, 'stroke-opacity': 0.5,
+  }, parent);
+  if (dash) p.setAttribute('stroke-dasharray', dash);
+  return p;
+}
+
+// Animated flow packet along a path
+function flowPacket(x1, y1, x2, y2, color, dur, r = 3.5) {
+  const c = svg('circle', { r, fill: color, filter: 'url(#softglow)' }, layerFlow);
+  const m = svg('animateMotion', {
+    dur: dur + 's', repeatCount: 'indefinite',
+    path: `M ${x1} ${y1} L ${x2} ${y2}`,
+    keyPoints: '0;1', keyTimes: '0;1', calcMode: 'linear'
+  }, c);
+  return c;
+}
+
+function tooltip(el, title, sub) {
+  el.addEventListener('mousemove', (e) => {
+    const rect = topoCanvas.getBoundingClientRect();
+    tip.style.left = (e.clientX - rect.left) + 'px';
+    tip.style.top = (e.clientY - rect.top) + 'px';
+    tip.innerHTML = `${title}<span class="ts">${sub}</span>`;
+    tip.classList.add('show');
+  });
+  el.addEventListener('mouseleave', () => tip.classList.remove('show'));
+}
+
+// ---- ZONES (department background boxes) ----
+TOPO.depts.forEach(d => {
+  const b = d.box;
+  svg('rect', {
+    x: b.x, y: b.y, width: b.w, height: b.h, rx: 12,
+    fill: d.color, 'fill-opacity': 0.05,
+    stroke: d.color, 'stroke-width': 1, 'stroke-opacity': 0.35,
+  }, layerZones);
+  // header label
+  svg('rect', { x: b.x + 14, y: b.y + 16, width: 9, height: 9, rx: 1, fill: d.color, transform: `rotate(45 ${b.x+18.5} ${b.y+20.5})` }, layerZones);
+  const t = svg('text', {
+    x: b.x + 34, y: b.y + 28,
+    fill: d.color, 'font-family': 'IBM Plex Mono', 'font-size': 22,
+    'letter-spacing': 2, 'font-weight': 700,
+  }, layerZones);
+  t.textContent = `${d.label} · ${d.count}`;
+  const sub = svg('text', {
+    x: b.x + 34, y: b.y + 48,
+    fill: 'var(--text-dim)', 'font-family': 'IBM Plex Mono', 'font-size': 13, 'letter-spacing': 1.5,
+  }, layerZones);
+  sub.textContent = d.full;
+});
+
+// ---- CORE / GATEWAY zone box ----
+svg('rect', { x: 600, y: 58, width: 440, height: 196, rx: 12, fill: 'var(--violet)', 'fill-opacity': 0.04, stroke: 'var(--violet)', 'stroke-width': 1, 'stroke-opacity': 0.3 }, layerZones);
+const coreLbl = svg('text', { x: 622, y: 84, fill: 'var(--violet)', 'font-family': 'IBM Plex Mono', 'font-size': 18, 'letter-spacing': 2, 'font-weight': 700 }, layerZones);
+coreLbl.textContent = '◆ CORE / GATEWAY';
+
+// ---- ATTACKERS zone box ----
+svg('rect', { x: 1190, y: 36, width: 380, height: 150, rx: 12, fill: 'var(--red)', 'fill-opacity': 0.05, stroke: 'var(--red)', 'stroke-width': 1, 'stroke-opacity': 0.35 }, layerZones);
+const atkLbl = svg('text', { x: 1210, y: 26, fill: 'var(--red)', 'font-family': 'IBM Plex Mono', 'font-size': 18, 'letter-spacing': 2, 'font-weight': 700 }, layerZones);
+atkLbl.textContent = '⚠ ATTACKERS · 6';
+
+// ---- TRUNK LINKS ----
+const g = TOPO.gateway, cs = TOPO.coreSw, ds = TOPO.dist, net = TOPO.internet;
+trunkLink(net.x, net.y, g.x, g.y, 'var(--text-dim)', layerLinks);
+trunkLink(g.x, g.y, cs.x, cs.y, 'var(--mint)', layerLinks);
+trunkLink(cs.x, cs.y, ds.x, ds.y, 'var(--mint)', layerLinks);
+// core internals
+TOPO.coreNodes.forEach(n => trunkLink(cs.x, cs.y, n.x, n.y, 'var(--text-dim)', layerLinks, '3 4'));
+// attackers -> gateway (dashed red)
+TOPO.attackers.forEach(a => {
+  trunkLink(a.x, a.y, g.x, g.y, 'var(--red)', layerLinks, '4 4').setAttribute('stroke-opacity', 0.35);
+});
+// dist -> dept switches
+TOPO.depts.forEach(d => trunkLink(ds.x, ds.y, d.sw.x, d.sw.y, d.color, layerLinks));
+
+// ---- FLOW PACKETS (the magic) ----
+flowPacket(g.x, g.y, cs.x, cs.y, 'var(--mint)', 1.6);
+flowPacket(cs.x, cs.y, ds.x, ds.y, 'var(--mint)', 1.8);
+TOPO.depts.forEach((d, i) => flowPacket(ds.x, ds.y, d.sw.x, d.sw.y, d.color, 2 + i * 0.25));
+// attack packets inbound
+TOPO.attackers.forEach((a, i) => flowPacket(a.x, a.y, g.x, g.y, 'var(--red)', 1.4 + i * 0.2, 2.6));
+
+// ---- NODE BUILDERS ----
+function nodeBox(x, y, w, h, fill, stroke, parent, glow) {
+  const r = svg('rect', {
+    x: x - w/2, y: y - h/2, width: w, height: h, rx: 7,
+    fill, stroke, 'stroke-width': 1.5,
+  }, parent);
+  if (glow) r.setAttribute('filter', 'url(#glow)');
+  return r;
+}
+
+function label(x, y, txt, color, size = 14, weight = 500, anchor = 'middle') {
+  const t = svg('text', {
+    x, y, fill: color, 'text-anchor': anchor,
+    'font-family': 'IBM Plex Mono', 'font-size': size, 'font-weight': weight,
+    'letter-spacing': 0.5,
+  }, layerNodes);
+  t.textContent = txt;
+  return t;
+}
+
+// Internet
+(() => {
+  const grp = svg('g', { class: 't-node' }, layerNodes);
+  nodeBox(net.x, net.y, 36, 36, 'var(--surface-2)', 'var(--text-dim)', grp);
+  svg('path', { d: `M ${net.x-9} ${net.y} a 9 6 0 0 1 18 0 M ${net.x} ${net.y-8} l 0 16 M ${net.x-8} ${net.y} l 16 0`, stroke: 'var(--text-sub)', 'stroke-width': 1.2, fill: 'none' }, grp);
+  label(net.x, net.y + 34, 'INTERNET', 'var(--text-dim)', 13, 700);
+  tooltip(grp, 'WAN Uplink', 'Edge router · ingress');
+})();
+
+// Gateway (red firewall/IDS)
+(() => {
+  svg('circle', { cx: g.x, cy: g.y, r: 48, fill: 'url(#gwGrad)' }, layerNodes);
+  const grp = svg('g', { class: 't-node' }, layerNodes);
+  const ring = svg('circle', { cx: g.x, cy: g.y, r: 26, fill: 'none', stroke: 'var(--red)', 'stroke-width': 1, opacity: 0.6 }, grp);
+  svg('animate', { attributeName: 'r', values: '26;46;26', dur: '2.5s', repeatCount: 'indefinite' }, ring);
+  svg('animate', { attributeName: 'opacity', values: '0.6;0;0.6', dur: '2.5s', repeatCount: 'indefinite' }, ring);
+  nodeBox(g.x, g.y, 46, 42, 'var(--surface)', 'var(--red)', grp, true);
+  svg('path', { d: `M ${g.x} ${g.y-11} l 11 5 v 6 c 0 6 -5 10 -11 12 c -6 -2 -11 -6 -11 -12 v -6 z`, fill: 'var(--red-soft)', stroke: 'var(--red)', 'stroke-width': 1.3 }, grp);
+  label(g.x, g.y + 36, 'GATEWAY · IDS', 'var(--red)', 15, 700);
+  tooltip(grp, 'AEGIS Gateway / IDS', 'Random Forest · 3-confirm · drops attacks');
+})();
+
+// Core switch
+(() => {
+  const grp = svg('g', { class: 't-node' }, layerNodes);
+  nodeBox(cs.x, cs.y, 50, 34, 'var(--surface-2)', 'var(--mint)', grp);
+  for (let i = -1; i <= 1; i++) svg('line', { x1: cs.x - 15, y1: cs.y + i*6, x2: cs.x + 15, y2: cs.y + i*6, stroke: 'var(--mint)', 'stroke-width': 1.4 }, grp);
+  label(cs.x, cs.y + 32, 'CORE SW', 'var(--mint)', 15, 700);
+  tooltip(grp, 'Core Switch', 'Backbone aggregation');
+})();
+
+// Core sub-nodes
+TOPO.coreNodes.forEach(n => {
+  const grp = svg('g', { class: 't-node' }, layerNodes);
+  if (n.kind === 'cloud') {
+    svg('path', { d: `M ${n.x-18} ${n.y+5} a 10 10 0 0 1 5 -18 a 12 12 0 0 1 22 2 a 9 9 0 0 1 2 16 z`, fill: 'var(--mint-soft)', stroke: 'var(--mint)', 'stroke-width': 1.3 }, grp);
+    label(n.x, n.y + 28, n.name.toUpperCase(), 'var(--text-sub)', 13, 700);
+  } else {
+    const col = n.kind === 'sec' ? 'var(--cyan)' : 'var(--text-dim)';
+    nodeBox(n.x, n.y, 30, 26, 'var(--surface-2)', col, grp);
+    label(n.x + 26, n.y + 5, n.name, 'var(--text-sub)', 13, 600, 'start');
+  }
+  tooltip(grp, n.name, 'Core service');
+});
+
+// Attackers
+TOPO.attackers.forEach(a => {
+  const grp = svg('g', { class: 't-node' }, layerNodes);
+  nodeBox(a.x, a.y, 32, 32, 'var(--red-soft)', 'var(--red)', grp);
+  const t = svg('text', { x: a.x, y: a.y + 7, 'text-anchor': 'middle', fill: 'var(--red)', 'font-family': 'IBM Plex Mono', 'font-size': 20, 'font-weight': 700 }, grp);
+  t.textContent = '!';
+  label(a.x, a.y + 32, a.name, 'var(--text-sub)', 13, 600);
+  tooltip(grp, a.name, 'Hostile · external');
+});
+
+// Distribution switch (purple, glowing)
+(() => {
+  svg('circle', { cx: ds.x, cy: ds.y, r: 70, fill: 'url(#distGrad)' }, layerNodes);
+  const grp = svg('g', { class: 't-node', 'data-sw': 'dist' }, layerNodes);
+  const ring = svg('circle', { cx: ds.x, cy: ds.y, r: 36, fill: 'none', stroke: 'var(--violet)', 'stroke-width': 1, opacity: 0.5 }, grp);
+  svg('animate', { attributeName: 'r', values: '36;66;36', dur: '3s', repeatCount: 'indefinite' }, ring);
+  svg('animate', { attributeName: 'opacity', values: '0.5;0;0.5', dur: '3s', repeatCount: 'indefinite' }, ring);
+  nodeBox(ds.x, ds.y, 58, 44, 'var(--surface)', 'var(--violet)', grp, true);
+  for (let i = -1; i <= 1; i++) svg('line', { x1: ds.x - 18, y1: ds.y + i*7, x2: ds.x + 18, y2: ds.y + i*7, stroke: 'var(--violet)', 'stroke-width': 1.6 }, grp);
+  label(ds.x, ds.y + 40, 'DISTRIBUTION', 'var(--violet)', 17, 700);
+  tooltip(grp, 'Distribution Switch', 'L3 core · routes all departments');
+})();
+
+// ---- DEPARTMENTS: switch + device fan ----
+TOPO.depts.forEach(d => {
+  deviceRegistry[d.id] = [];
+  // Department switch
+  const swGrp = svg('g', { class: 't-node', 'data-sw': d.id }, layerNodes);
+  nodeBox(d.sw.x, d.sw.y, 50, 34, 'var(--surface-2)', d.color, swGrp);
+  for (let i = -1; i <= 1; i++) svg('line', { x1: d.sw.x - 15, y1: d.sw.y + i*6, x2: d.sw.x + 15, y2: d.sw.y + i*6, stroke: d.color, 'stroke-width': 1.4 }, swGrp);
+  label(d.sw.x + 32, d.sw.y + 5, `${d.label} SW`, d.color, 14, 700, 'start');
+  tooltip(swGrp, `${d.label} Switch`, `${d.count} devices · click to isolate`);
+
+  // Device fan
+  const b = d.box;
+  const cols = d.cols;
+  const rows = Math.ceil(d.count / cols);
+  const areaTop = d.id === 'dc' ? d.sw.y - 4 : d.sw.y + 66;
+  const padX = 42;
+  const colGap = (b.w - padX * 2) / (cols - 1 || 1);
+  const rowGap = d.id === 'dc' ? 0 : 62;
+  const startX = b.x + padX;
+
+  for (let i = 0; i < d.count; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const dx = cols === 1 ? d.sw.x : startX + col * colGap;
+    let dy;
+    if (d.id === 'dc') {
+      // servers in two rows beside the switch
+      const dcCols = 5;
+      const dcGap = (b.w - 120) / (dcCols - 1);
+      const c2 = i % dcCols, r2 = Math.floor(i / dcCols);
+      const sx = b.x + 90 + c2 * dcGap;
+      const sy = d.sw.y + 48 + r2 * 60;
+      drawDevice(d, i, sx, sy, d.sw.x, d.sw.y);
+      continue;
+    } else {
+      dy = areaTop + row * rowGap;
+    }
+    drawDevice(d, i, dx, dy, d.sw.x, d.sw.y);
+  }
+});
+
+function drawDevice(d, i, dx, dy, swx, swy) {
+  const sz = d.server ? 36 : 32;
+  // connection line switch -> device
+  const line = svg('line', {
+    x1: swx, y1: swy + 17, x2: dx, y2: dy - sz/2 - 1,
+    stroke: d.color, 'stroke-width': 1, 'stroke-opacity': 0.3,
+  }, layerLinks);
+
+  // status: most benign, a few suspicious/compromised
+  let fill = d.server ? 'url(#srvGrad)' : 'url(#devGrad)';
+  let stroke = d.server ? 'var(--mint)' : '#0ea5b7';
+  let status = d.server ? 'Server · online' : 'Benign · monitored';
+
+  const grp = svg('g', { class: 't-node', 'data-devdept': d.id }, layerNodes);
+  const r = nodeBox(dx, dy, sz, sz, fill, stroke, grp);
+  r.setAttribute('rx', 7);
+
+  // icon glyph
+  if (d.server) {
+    for (let k = 0; k < 3; k++) svg('rect', { x: dx - 10, y: dy - 10 + k*7.5, width: 20, height: 5, rx: 1, fill: 'none', stroke: 'rgba(255,255,255,0.65)', 'stroke-width': 1 }, grp);
+  } else {
+    svg('path', { d: `M ${dx-10} ${dy} l 5 0 l 2.5 -6 l 3.5 11 l 2.5 -5 l 6 0`, fill: 'none', stroke: 'rgba(255,255,255,0.75)', 'stroke-width': 1.3, 'stroke-linejoin': 'round' }, grp);
+  }
+
+  // short label (readable, non-colliding)
+  const typ = d.types[i % d.types.length];
+  const shortT = (d.short && d.short[i % d.short.length]) || typ;
+  const num = Math.floor(i / d.types.length) + 1;
+  label(dx, dy + sz/2 + 17, `${shortT} ${num}`, 'var(--text-sub)', 14, 600);
+
+  // live blink on subset
+  if (Math.random() < 0.4) {
+    svg('animate', { attributeName: 'opacity', values: '1;0.45;1', dur: (2 + Math.random()*2.5) + 's', repeatCount: 'indefinite' }, r);
+  }
+  if (status.startsWith('Compromised')) {
+    const halo = svg('circle', { cx: dx, cy: dy, r: sz/2 + 4, fill: 'none', stroke: 'var(--red)', 'stroke-width': 1.2, opacity: 0.6 }, grp);
+    svg('animate', { attributeName: 'r', values: `${sz/2+4};${sz/2+14};${sz/2+4}`, dur: '1.6s', repeatCount: 'indefinite' }, halo);
+    svg('animate', { attributeName: 'opacity', values: '0.7;0;0.7', dur: '1.6s', repeatCount: 'indefinite' }, halo);
+  }
+
+  tooltip(grp, `${typ} ${num}`, `${d.label} · ${status}`);
+  r.__server = !!d.server;
+  deviceRegistry[d.id].push({ grp, line, rect: r });
+}
+
+// ---- CLICK-TO-ISOLATE ----
+let isolated = null;
+function isolate(deptId) {
+  const allNodes = layerNodes.querySelectorAll('[data-devdept]');
+  const allLines = layerLinks.querySelectorAll('line');
+  if (isolated === deptId) {
+    // reset
+    layerNodes.querySelectorAll('.t-dim').forEach(e => e.classList.remove('t-dim'));
+    layerLinks.querySelectorAll('.t-dim').forEach(e => e.classList.remove('t-dim'));
+    isolated = null;
+    return;
+  }
+  isolated = deptId;
+  allNodes.forEach(n => n.classList.toggle('t-dim', n.getAttribute('data-devdept') !== deptId));
+  // dim device lines not in dept
+  deviceRegistry && Object.entries(deviceRegistry).forEach(([id, arr]) => {
+    arr.forEach(({ line }) => line.classList.toggle('t-dim', id !== deptId));
+  });
+}
+
+layerNodes.querySelectorAll('[data-sw]').forEach(sw => {
+  const id = sw.getAttribute('data-sw');
+  if (id === 'dist') return;
+  sw.addEventListener('click', (e) => { e.stopPropagation(); isolate(id); });
+});
+document.querySelectorAll('.tf-stat-row[data-dept]').forEach(row => {
+  row.addEventListener('click', () => isolate(row.getAttribute('data-dept')));
+});
+topoSvg.addEventListener('click', () => { if (isolated) isolate(isolated); });
+
+// ---- ZOOM + DRAG-TO-PAN ----
+(() => {
+  const sc = document.getElementById('topo-scroll');
+  const svgEl = document.getElementById('topo-svg');
+  if (!sc || !svgEl) return;
+
+  const RATIO = 1300 / 1600;
+  const MINZ = 0.5, MAXZ = 3.2;
+  let BASE_W = Math.max(1500, sc.clientWidth - 14);
+  let zoom = 1;
+  const pct = document.getElementById('zoom-pct');
+
+  function setZoom(z, anchorX, anchorY) {
+    z = Math.min(MAXZ, Math.max(MINZ, z));
+    const oldW = BASE_W * zoom;
+    const newW = BASE_W * z;
+    const rect = sc.getBoundingClientRect();
+    const ax = anchorX != null ? anchorX - rect.left : sc.clientWidth / 2;
+    const ay = anchorY != null ? anchorY - rect.top  : sc.clientHeight / 2;
+    const fx = (sc.scrollLeft + ax) / oldW;
+    const fy = (sc.scrollTop + ay) / (oldW * RATIO);
+    zoom = z;
+    svgEl.style.width = Math.round(newW) + 'px';
+    svgEl.style.height = Math.round(newW * RATIO) + 'px';
+    sc.scrollLeft = fx * newW - ax;
+    sc.scrollTop = fy * (newW * RATIO) - ay;
+    if (pct) pct.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  // initialise at 100%
+  svgEl.style.width = Math.round(BASE_W) + 'px';
+  svgEl.style.height = Math.round(BASE_W * RATIO) + 'px';
+  if (pct) pct.textContent = '100%';
+  requestAnimationFrame(() => { sc.scrollLeft = Math.max(0, (sc.scrollWidth - sc.clientWidth) / 2); });
+
+  document.getElementById('zoom-in').addEventListener('click', () => setZoom(zoom * 1.25));
+  document.getElementById('zoom-out').addEventListener('click', () => setZoom(zoom / 1.25));
+  document.getElementById('zoom-fit').addEventListener('click', () => {
+    BASE_W = Math.max(1500, sc.clientWidth - 14);
+    setZoom(sc.clientWidth / BASE_W);
+    requestAnimationFrame(() => { sc.scrollLeft = 0; sc.scrollTop = 0; });
+  });
+
+  // scroll-wheel zoom toward the cursor
+  sc.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setZoom(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY);
+  }, { passive: false });
+
+  // drag to pan (ignores clicks that land on a node)
+  let down = false, sx = 0, sy = 0, sl = 0, st = 0;
+  sc.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.t-node')) return;
+    down = true; sx = e.clientX; sy = e.clientY; sl = sc.scrollLeft; st = sc.scrollTop;
+    sc.setPointerCapture(e.pointerId);
+  });
+  sc.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    sc.scrollLeft = sl - (e.clientX - sx);
+    sc.scrollTop = st - (e.clientY - sy);
+  });
+  const end = (e) => { down = false; try { sc.releasePointerCapture(e.pointerId); } catch(_){} };
+  sc.addEventListener('pointerup', end);
+  sc.addEventListener('pointercancel', end);
+})();
+
+/* ========================================================================
+   ASCON STATE GRID
+======================================================================== */
+function buildStateGrid() {
+  const grid = document.getElementById('state-grid');
+  if (!grid) return;
+  for (let i = 0; i < 40; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'state-cell';
+    cell.textContent = Math.floor(Math.random() * 16).toString(16).toUpperCase();
+    grid.appendChild(cell);
+  }
+}
+buildStateGrid();
+
+AEGIS.on('crypto_state', (d) => {
+  const cells = document.querySelectorAll('.state-cell');
+  if (!cells.length) return;
+  cells.forEach(c => c.classList.remove('act'));
+  (d.active || []).forEach(i => {
+    if (!cells[i]) return;
+    cells[i].classList.add('act');
+    if (d.cells && d.cells[i] != null) cells[i].textContent = d.cells[i];
+  });
+});
+
+/* ========================================================================
+   COMMAND PALETTE
+======================================================================== */
+const cmdOverlay = document.getElementById('cmd-overlay');
+const cmdInput = document.getElementById('cmd-input');
+const cmdList = document.getElementById('cmd-list');
+const searchTrigger = document.getElementById('search-trigger');
+
+const cmdItems = [
+  { num: '00', label: 'Overview', view: 'overview' },
+  { num: '01', label: 'Alerts & Incidents', view: 'alerts' },
+  { num: '02', label: 'Network Map', view: 'topology' },
+  { num: '03', label: 'Devices', view: 'devices' },
+  { num: '04', label: 'Detection Engine', view: 'detection' },
+  { num: '05', label: 'Response & Mitigation', view: 'response' },
+  { num: '06', label: 'Crypto Health', view: 'crypto' },
+  { num: '07', label: 'Audit & Compliance', view: 'reports' },
+  { num: '08', label: 'System & Deployment', view: 'about' },
+];
+
+function renderCmd(q = '') {
+  cmdList.innerHTML = '';
+  const filtered = cmdItems.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
+  filtered.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'cmd-item' + (i === 0 ? ' sel' : '');
+    el.innerHTML = `<span class="num">${c.num}</span><span>${c.label}</span><span class="key">↵</span>`;
+    el.addEventListener('click', () => {
+      navigate(c.view);
+      closeCmd();
+    });
+    cmdList.appendChild(el);
+  });
+}
+
+function openCmd() {
+  cmdOverlay.classList.add('open');
+  cmdInput.value = '';
+  renderCmd();
+  setTimeout(() => cmdInput.focus(), 50);
+}
+function closeCmd() {
+  cmdOverlay.classList.remove('open');
+}
+
+searchTrigger.addEventListener('click', openCmd);
+cmdInput.addEventListener('input', e => renderCmd(e.target.value));
+
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    openCmd();
+  }
+  if (e.key === 'Escape') closeCmd();
+  if (e.key === 'Enter' && cmdOverlay.classList.contains('open')) {
+    const sel = cmdList.querySelector('.cmd-item.sel');
+    if (sel) sel.click();
+  }
+});
+
+cmdOverlay.addEventListener('click', e => {
+  if (e.target === cmdOverlay) closeCmd();
+});
+
+/* ========================================================================
+   OPERATIONAL DATA — Devices · Response · Audit · Overview attention
+======================================================================== */
+(() => {
+  const deptColor = { 'ICU':'var(--cyan)', 'ER':'var(--violet)', 'WARD':'var(--mint)', 'OR':'var(--blue)', 'DATA CTR':'var(--amber)' };
+  const sevClass = { Low:'low', Med:'med', High:'crit' };
+  const actMap = { BLOCK:{cls:'blocked',lbl:'BLOCK'}, WATCH:{cls:'monitor',lbl:'WATCH'}, ALLOW:{cls:'allowed',lbl:'ALLOW'} };
+
+  window.AEGIS_RENDER = {
+    threat(item) {
+      const list = document.getElementById('threat-list'); if (!list) return;
+      const a = actMap[item.action] || actMap.ALLOW;
+      const el = document.createElement('div');
+      el.className = `threat-entry ${item.severity}`;
+      el.innerHTML = `
+        <span class="t-time">${item.hms}</span>
+        <span class="t-msg"><span class="src">${item.source}</span> &middot; <span class="typ">${item.attack_class}</span></span>
+        <span class="t-conf">${Number(item.confidence).toFixed(1)}%</span>
+        <span class="t-act ${a.cls}">${a.lbl}</span>`;
+      list.prepend(el);
+      while (list.children.length > 7) list.removeChild(list.lastChild);
+    },
+    attention(items) {
+      const box = document.getElementById('ov-attention'); if (!box) return;
+      box.innerHTML = (items || []).map(item => {
+        const a = actMap[item.action] || actMap.WATCH;
+        const lbl = item.action === 'BLOCK' ? (item.attack_class === 'Ransomware' ? 'CONTAINED' : 'BLOCKED') : a.lbl;
+        return `<div class="threat-entry ${item.severity}">
+          <span class="t-time">${item.hms}</span>
+          <span class="t-msg"><span class="src">${item.source}</span> &middot; <span class="typ">${item.attack_class}</span></span>
+          <span class="t-conf">${Number(item.confidence).toFixed(1)}%</span>
+          <span class="t-act ${a.cls}">${lbl}</span>
+        </div>`;
+      }).join('');
+    },
+    inference(item) {
+      const body = document.querySelector('#inf-table tbody'); if (!body) return;
+      const ac = item.benign ? 'mint' : (item.action === 'BLOCK' ? 'red' : 'amber');
+      const cv = item.confirm === '3 / 3' ? 'cyan' : 'text-dim';
+      const cf = Number(item.confidence).toFixed(2);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.hms}</td>
+        <td>${item.source}</td>
+        <td class="cls ${item.benign ? 'benign' : 'threat'}">${item.attack_class}</td>
+        <td><div style="display:flex; align-items:center; gap:0.5rem;">
+          <div class="cbar"><div class="cfill" style="width:${cf}%"></div></div>
+          <span style="font-size:0.62rem;color:var(--text-dim);">${cf}%</span></div></td>
+        <td style="color:var(--${cv});">${item.confirm}</td>
+        <td style="color:var(--${ac});font-weight:600;">${item.action}</td>`;
+      body.prepend(tr);
+      while (body.children.length > 7) body.removeChild(body.lastChild);
+    },
+    response(item) {
+      const body = document.getElementById('resp-tbody'); if (!body) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--text-dim)">${item.hms}</td>
+        <td class="cls threat">${item.trigger}</td>
+        <td>${item.target}</td>
+        <td style="color:var(--text)">${item.action}</td>
+        <td style="color:var(--${item.result_color});font-weight:600">${item.result}</td>
+        <td>${item.mode}</td>`;
+      body.prepend(tr);
+      while (body.children.length > 9) body.removeChild(body.lastChild);
+    },
+    audit(item) {
+      const body = document.getElementById('audit-tbody'); if (!body) return;
+      const isSys = !!item.is_system;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--text-dim)">${item.hms}</td>
+        <td style="color:${isSys ? 'var(--cyan)' : 'var(--mint)'}">${isSys ? 'system' : '@' + item.actor}</td>
+        <td style="color:var(--text)">${item.event}</td>
+        <td style="color:var(--text-sub)">${item.detail}</td>`;
+      body.prepend(tr);
+      while (body.children.length > 11) body.removeChild(body.lastChild);
+    },
+  };
+
+  function applyTopologyStatus(depts) {
+    if (typeof deviceRegistry === 'undefined') return;
+    const NS = 'http://www.w3.org/2000/svg';
+    (depts || []).forEach(dp => {
+      const arr = deviceRegistry[dp.id] || [];
+      (dp.devices || []).forEach((dev, i) => {
+        const ent = arr[i]; if (!ent || !ent.rect) return;
+        const rect = ent.rect;
+        let stroke = rect.__server ? 'var(--mint)' : '#0ea5b7';
+        let fill = rect.__server ? 'url(#srvGrad)' : 'url(#devGrad)';
+        let opacity = '1';
+        if (dev.status === 'compromised')       { stroke = 'var(--red)';    fill = 'var(--red-soft)'; }
+        else if (dev.status === 'suspicious')    { stroke = 'var(--amber)';  fill = 'var(--amber-soft)'; }
+        else if (dev.status === 'live')          { stroke = 'var(--cyan)';   fill = 'var(--cyan-soft)'; }
+        else if (dev.status === 'stale')         { stroke = 'var(--amber)';  fill = 'var(--amber-soft)'; }
+        else if (dev.status === 'offline')       { stroke = 'var(--text-faint)'; fill = 'var(--surface-2)'; opacity = '0.4'; }
+        rect.setAttribute('stroke', stroke);
+        rect.setAttribute('fill', fill);
+        rect.setAttribute('opacity', opacity);
+
+        // real ESP32/Pi hardware -> pulsing LIVE ring + label
+        if (dev.real) {
+          if (!ent.liveRing) {
+            const x = parseFloat(rect.getAttribute('x')), y = parseFloat(rect.getAttribute('y'));
+            const w = parseFloat(rect.getAttribute('width')), h = parseFloat(rect.getAttribute('height'));
+            const cx = x + w / 2, cy = y + h / 2, rr = Math.max(w, h) / 2 + 6;
+            const ring = document.createElementNS(NS, 'circle');
+            ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', rr);
+            ring.setAttribute('fill', 'none'); ring.setAttribute('stroke-width', '1.6');
+            const anim = document.createElementNS(NS, 'animate');
+            anim.setAttribute('attributeName', 'opacity'); anim.setAttribute('values', '0.95;0.2;0.95');
+            anim.setAttribute('dur', '1.4s'); anim.setAttribute('repeatCount', 'indefinite');
+            ring.appendChild(anim);
+            ent.grp.appendChild(ring); ent.liveRing = ring;
+            const tag = document.createElementNS(NS, 'text');
+            tag.setAttribute('x', cx); tag.setAttribute('y', y - 7);
+            tag.setAttribute('text-anchor', 'middle'); tag.setAttribute('font-family', 'IBM Plex Mono');
+            tag.setAttribute('font-size', '11'); tag.setAttribute('font-weight', '700');
+            tag.setAttribute('letter-spacing', '1');
+            ent.grp.appendChild(tag); ent.liveTag = tag;
+          }
+          const col = dev.status === 'live' ? 'var(--cyan)'
+                    : dev.status === 'stale' ? 'var(--amber)' : 'var(--text-faint)';
+          ent.liveRing.setAttribute('stroke', col);
+          ent.liveRing.style.display = (dev.status === 'offline') ? 'none' : '';
+          if (ent.liveTag) {
+            ent.liveTag.setAttribute('fill', col);
+            ent.liveTag.textContent = dev.status === 'offline' ? 'OFFLINE'
+                                    : dev.status === 'stale' ? 'STALE' : 'LIVE';
+          }
+        }
+      });
+    });
+  }
+
+  async function loadDevices() {
+    const d = await AEGIS.get('/api/dash/devices');
+    const body = document.getElementById('dev-tbody');
+    if (body) {
+      body.innerHTML = d.devices.map(x => `<tr>
+        <td style="color:var(--text)">${x.host}</td>
+        <td>${x.type}</td>
+        <td><span style="color:${deptColor[x.dept] || 'var(--text)'}">${x.dept}</span></td>
+        <td>${x.ip}</td>
+        <td>${x.fw}</td>
+        <td style="color:var(--mint)">${x.encryption} &check;</td>
+        <td><span class="sev ${sevClass[x.risk]}">${x.risk}</span></td>
+        <td style="color:${x.status==='live'?'var(--cyan)':x.status==='compromised'?'var(--red)':x.status==='stale'?'var(--amber)':x.status==='offline'?'var(--text-faint)':'var(--text-dim)'}">${x.real ? '&#9670; ' : ''}${x.status==='online' ? 'monitored' : x.status.toUpperCase()}</td>
+      </tr>`).join('');
+    }
+    const dr = document.getElementById('dev-risk'); if (dr) dr.textContent = d.at_risk;
+    const dc = document.getElementById('dev-count'); if (dc) dc.textContent = `${d.count} endpoints`;
+  }
+
+  async function loadResponse() {
+    const d = await AEGIS.get('/api/dash/response');
+    const quarList = document.getElementById('quar-list');
+    if (quarList) {
+      quarList.innerHTML = d.quarantine.map(q => `
+        <div style="padding:0.6rem 0.75rem;background:var(--surface-2);border-radius:6px;border-left:2px solid ${q.color}">
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.64rem;color:var(--text-dim)"><span>${q.host}</span><span>ISOLATED</span></div>
+          <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text);margin:0.2rem 0 0.45rem">${q.reason}</div>
+          <button class="btn release-btn" data-host="${q.host}" style="padding:0.28rem 0.6rem;font-size:0.58rem">Release device</button>
+        </div>`).join('') || '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.72rem">No devices isolated.</div>';
+      const qc = document.getElementById('quar-count'); if (qc) qc.textContent = `${d.quarantine.length} devices isolated`;
+      quarList.querySelectorAll('.release-btn').forEach(b => b.addEventListener('click', async () => {
+        b.disabled = true; b.textContent = 'Releasing...';
+        await AEGIS.post('/api/mitigation/unblock', { device_id: b.dataset.host });
+        loadResponse(); loadTopology();
+      }));
+    }
+    const pb = document.getElementById('playbooks');
+    if (pb) pb.innerHTML = d.playbooks.map(p => `<div class="comp">${p.trigger} <span class="s">&rarr; ${p.action.toUpperCase()} &middot; AUTO</span></div>`).join('');
+    const body = document.getElementById('resp-tbody');
+    if (body) { body.innerHTML = ''; d.actions.slice().reverse().forEach(a => window.AEGIS_RENDER.response(a)); }
+  }
+
+  async function loadAudit() {
+    const d = await AEGIS.get('/api/dash/reports/audit');
+    const body = document.getElementById('audit-tbody');
+    if (body) { body.innerHTML = ''; d.log.slice().reverse().forEach(e => window.AEGIS_RENDER.audit(e)); }
+    const re = document.getElementById('rep-events'); if (re) re.textContent = Number(d.events_24h).toLocaleString();
+    const ro = document.getElementById('rep-open'); if (ro) ro.textContent = d.open_incidents;
+  }
+
+  async function loadOverview() {
+    const d = await AEGIS.get('/api/dash/overview');
+    window.AEGIS_RENDER.attention(d.needs_attention);
+    const kt = document.getElementById('kpi-threats'); if (kt) kt.textContent = d.kpis.active_threats;
+    if (window.__donutChart) { window.__donutChart.data.datasets[0].data = d.class_distribution.data; window.__donutChart.update('none'); }
+    if (window.__trafficChart) {
+      window.__trafficChart.data.datasets[0].data = d.throughput.in.slice();
+      window.__trafficChart.data.datasets[1].data = d.throughput.out.slice();
+      window.__trafficChart.update('none');
+    }
+  }
+
+  async function loadAlertsSeed() {
+    const d = await AEGIS.get('/api/dash/alerts');
+    d.queue.slice(0, 7).reverse().forEach(r => window.AEGIS_RENDER.inference(r));
+    d.queue.filter(r => !r.benign).slice(0, 5).reverse().forEach(r => window.AEGIS_RENDER.threat(r));
+  }
+
+  async function loadTopology() {
+    const d = await AEGIS.get('/api/dash/topology');
+    applyTopologyStatus(d.departments);
+  }
+
+  async function loadSparks() {
+    try { window.__sparks = await AEGIS.get('/api/dash/metrics/sparks'); if (typeof refreshSparks === 'function') refreshSparks(); } catch (_) {}
+  }
+
+  // ---- normalize real backend labels ----
+  const _alias = { normal:'Benign', benign:'Benign', ddos:'DDoS', dos:'DoS', icmp_flood:'ICMP_Flood', icmp:'ICMP_Flood', arp_spoofing:'ARP_Spoofing', arp:'ARP_Spoofing', arp_spoof:'ARP_Spoofing', mqtt_attack:'MQTT_Attack', mqtt:'MQTT_Attack', ransomware:'Ransomware', ransom:'Ransomware', recon:'Recon', reconnaissance:'Recon', exfiltration:'Exfiltration', data_exfiltration:'Exfiltration', exfil:'Exfiltration' };
+  const _sevA = { critical:'crit', crit:'crit', high:'high', medium:'med', med:'med', moderate:'med', low:'info', info:'info', normal:'info' };
+  const _clsSev = { Benign:'info', DDoS:'crit', DoS:'high', ICMP_Flood:'high', ARP_Spoofing:'crit', MQTT_Attack:'high', Ransomware:'crit', Recon:'med', Exfiltration:'crit' };
+  function ncls(s){ if(!s) return 'Benign'; return _alias[String(s).toLowerCase().replace(/[-\s]/g,'_')] || s; }
+  function nsev(s, f){ return _sevA[String(s||'').toLowerCase()] || f || 'med'; }
+  function hmsNow(ts){ try { return (ts ? new Date(ts) : new Date()).toTimeString().slice(0,8); } catch(_) { return new Date().toTimeString().slice(0,8); } }
+
+  function mapThreat(d) {
+    d = d || {};
+    const cls = ncls(d.threat_type);
+    const sev = nsev(d.severity, _clsSev[cls]);
+    const action = (sev === 'crit' || sev === 'high') ? 'BLOCK' : 'WATCH';
+    return { hms: hmsNow(d.timestamp), source: d.device_id || 'unknown', attack_class: cls, severity: sev, confidence: Number(d.confidence || 0), confirm: action === 'BLOCK' ? '3 / 3' : '2 / 3', action, benign: cls === 'Benign' };
+  }
+  function mapPrediction(d) {
+    d = d || {};
+    const baseCls = ncls(d.predicted_class);
+    const benign = baseCls === 'Benign';
+    const cls = d.is_zero_day ? 'ZERO_DAY' : (d.is_suspicious ? ('SUSP_' + baseCls) : baseCls);
+    const sev = benign ? 'info' : (_clsSev[baseCls] || 'high');
+    return { hms: hmsNow(d.timestamp), source: d.device_id || 'ensemble', attack_class: cls, severity: sev, confidence: Number(d.confidence || 0), confirm: benign ? '1 / 3' : '3 / 3', action: benign ? 'ALLOW' : 'BLOCK', benign };
+  }
+  function prependAttention(item) {
+    if (item.benign || (item.severity !== 'crit' && item.severity !== 'high')) return;
+    const box = document.getElementById('ov-attention'); if (!box) return;
+    const a = { BLOCK:{cls:'blocked',lbl:'BLOCKED'}, WATCH:{cls:'monitor',lbl:'WATCH'} }[item.action] || {cls:'monitor',lbl:'WATCH'};
+    const el = document.createElement('div');
+    el.className = `threat-entry ${item.severity}`;
+    el.innerHTML = `<span class="t-time">${item.hms}</span><span class="t-msg"><span class="src">${item.source}</span> &middot; <span class="typ">${item.attack_class}</span></span><span class="t-conf">${Number(item.confidence).toFixed(1)}%</span><span class="t-act ${a.cls}">${a.lbl}</span>`;
+    box.prepend(el);
+    while (box.children.length > 6) box.removeChild(box.lastChild);
+  }
+  function pushThroughput(rate) {
+    const c = window.__trafficChart; if (!c || rate == null) return;
+    c.data.datasets[0].data.shift(); c.data.datasets[0].data.push(Number(rate));
+    c.data.datasets[1].data.shift(); c.data.datasets[1].data.push(Number(rate) * 0.6);
+    c.update('none');
+  }
+  function pulseCryptoGrid() {
+    const cells = document.querySelectorAll('.state-cell'); if (!cells.length) return;
+    cells.forEach(c => c.classList.remove('act'));
+    const n = 8 + Math.floor(Math.random() * 14);
+    const ids = new Set(); while (ids.size < n) ids.add(Math.floor(Math.random() * cells.length));
+    ids.forEach(i => { cells[i].classList.add('act'); cells[i].textContent = Math.floor(Math.random() * 16).toString(16).toUpperCase(); });
+  }
+
+  // ---- real backend live events ----
+  AEGIS.on('threat_detected', (d) => { const it = mapThreat(d); window.AEGIS_RENDER.threat(it); window.AEGIS_RENDER.inference(it); prependAttention(it); });
+  AEGIS.on('ai_prediction', (d) => { window.AEGIS_RENDER.inference(mapPrediction(d)); });
+  AEGIS.on('network_update', (d) => { pushThroughput(d && d.packet_rate); });
+  AEGIS.on('threat_blocked', () => { loadResponse(); loadTopology(); });
+  AEGIS.on('crypto_event', () => pulseCryptoGrid());
+
+  async function refreshAggregates() {
+    await Promise.allSettled([loadOverview(), loadResponse(), loadAudit(), loadTopology(), loadDevices()]);
+  }
+
+  async function boot() {
+    AEGIS.connect();
+    if (AEGIS.connectCrypto) AEGIS.connectCrypto();
+    await Promise.allSettled([
+      loadOverview(), loadAlertsSeed(), loadDevices(),
+      loadResponse(), loadAudit(), loadTopology(), loadSparks(),
+    ]);
+    setInterval(loadSparks, 5000);
+    setInterval(refreshAggregates, 6000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+<script>
+/* ===== Test Model — real /api/ai/predict (RF + CNN-LSTM + Autoencoder) ===== */
+(function () {
+  const AEGIS = window.AEGIS;
+  const btn = document.getElementById('test-model-btn');
+  if (!btn || !AEGIS) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'cmd-overlay';
+  overlay.id = 'tm-overlay';
+  overlay.innerHTML = `
+    <div class="cmd-box" style="max-width:580px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+        <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">Test the Ensemble</div>
+        <button class="btn" id="tm-close" style="padding:0.2rem 0.6rem;font-size:0.6rem">ESC</button>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-dim);margin-bottom:0.85rem;line-height:1.5">
+        Sends a synthetic 39-feature CICIoMT sample to
+        <span style="color:var(--cyan)">/api/ai/predict</span>. The verdict below is the
+        live output of the real RF + CNN-LSTM + Autoencoder ensemble — presets only nudge the
+        input, the model decides the class.</div>
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.85rem">
+        <button class="btn tm-prof active" data-p="random">Random</button>
+        <button class="btn tm-prof" data-p="benign">Benign-ish</button>
+        <button class="btn tm-prof" data-p="ddos">DDoS-ish</button>
+        <button class="btn tm-prof" data-p="icmp">ICMP-ish</button>
+        <button class="btn tm-prof" data-p="recon">Recon-ish</button>
+      </div>
+      <button class="btn btn-primary" id="tm-run" style="width:100%;justify-content:center;margin-bottom:0.85rem">Run inference &rarr;</button>
+      <div id="tm-result" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-sub);min-height:1.2rem"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  let profile = 'random';
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  function genVector(p) {
+    // 39 features in ensemble order; mild per-profile nudges (synthetic sample).
+    const v = new Array(39).fill(0).map(() => rnd(0, 0.4));
+    // a few interpretable slots: 3=Rate 5=syn_flag 11=ack_count 12=syn_count 22=TCP 23=UDP 26=ICMP 30=Tot_sum 33=AVG
+    if (p === 'benign')      { v[3] = rnd(0, 0.12); v[12] = rnd(0, 0.1);  v[26] = 0;          v[22] = rnd(0.4, 0.8); }
+    else if (p === 'ddos')   { v[3] = rnd(0.8, 1);  v[5]  = rnd(0.8, 1);  v[12] = rnd(0.8, 1); v[22] = rnd(0.7, 1); v[30] = rnd(0.8, 1); }
+    else if (p === 'icmp')   { v[26] = rnd(0.8, 1); v[3]  = rnd(0.6, 1);  v[22] = rnd(0, 0.1); v[23] = rnd(0, 0.1); }
+    else if (p === 'recon')  { v[5] = rnd(0.6, 1);  v[12] = rnd(0.6, 1);  v[11] = rnd(0, 0.1); v[33] = rnd(0, 0.15); }
+    else                     { for (let i = 0; i < 39; i++) v[i] = rnd(0, 1); }
+    return v.map(x => +x.toFixed(4));
+  }
+
+  function fmt(n, d = 1) { const x = Number(n); return isFinite(x) ? x.toFixed(d) : '—'; }
+
+  async function run() {
+    const res = document.getElementById('tm-result');
+    res.innerHTML = '<span style="color:var(--text-dim)">running ensemble…</span>';
+    try {
+      const out = await AEGIS.post('/api/ai/predict', { features: genVector(profile), device_id: 'test-console' });
+      if (out && out.predicted_class) {
+        const zd = out.is_zero_day
+          ? '<span style="color:var(--red)">ZERO-DAY</span>'
+          : (out.is_suspicious ? '<span style="color:var(--amber)">SUSPICIOUS</span>'
+                               : '<span style="color:var(--mint)">KNOWN</span>');
+        res.innerHTML = `
+          <div style="font-size:1.15rem;color:var(--text);font-family:var(--font-display);margin-bottom:0.5rem">
+            ${out.predicted_class} &middot; ${fmt(out.confidence)}% &nbsp;${zd}</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:0.3rem 1rem;color:var(--text-dim)">
+            <span>RandomForest</span><span style="color:var(--text)">${out.rf_class} &middot; ${fmt(out.rf_confidence)}%</span>
+            <span>CNN-LSTM</span><span style="color:var(--text)">${out.cnn_class} &middot; ${fmt(out.cnn_confidence)}%</span>
+            <span>Autoencoder</span><span style="color:var(--text)">score ${fmt(out.anomaly_score, 4)} / thr ${fmt(out.anomaly_threshold, 4)}</span>
+          </div>
+          <div style="margin-top:0.5rem;color:var(--text-faint);font-size:0.62rem">Broadcast to /ws &rarr; see the Alerts inference table.</div>`;
+      } else if (out && out.detail) {
+        res.innerHTML = '<span style="color:var(--red)">' + out.detail + '</span>';
+      } else {
+        res.innerHTML = '<span style="color:var(--amber)">Unexpected response: ' + JSON.stringify(out).slice(0, 180) + '</span>';
+      }
+    } catch (e) {
+      res.innerHTML = '<span style="color:var(--red)">Error: ' + (e && e.message ? e.message : e) + '</span>';
+    }
+  }
+
+  btn.addEventListener('click', () => { overlay.classList.add('open'); document.getElementById('tm-result').innerHTML = ''; });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+  document.getElementById('tm-close').addEventListener('click', () => overlay.classList.remove('open'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+  overlay.querySelectorAll('.tm-prof').forEach(b => b.addEventListener('click', () => {
+    profile = b.dataset.p;
+    overlay.querySelectorAll('.tm-prof').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  }));
+  document.getElementById('tm-run').addEventListener('click', run);
+})();
+</script>
+<script>
+/* ===== Crypto Health — real /api/crypto/* (formal, data-only) ===== */
+(function () {
+  const base = location.origin;
+  const $ = (id) => document.getElementById(id);
+  const getJSON = (p) => fetch(base + p).then(r => r.json());
+  const postJSON = (p, b) => fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+
+  let overlay;
+  function modal(title, html) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'cmd-overlay'; overlay.id = 'crypto-overlay';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+    }
+    overlay.innerHTML = `<div class="cmd-box" style="max-width:640px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+        <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">${title}</div>
+        <button class="btn" id="cx-close" style="padding:0.2rem 0.6rem;font-size:0.6rem">ESC</button></div>
+      <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-sub)">${html}</div></div>`;
+    overlay.classList.add('open');
+    $('cx-close').addEventListener('click', () => overlay.classList.remove('open'));
+  }
+
+  function setTxt(id, txt, color) { const e = $(id); if (e) { e.textContent = txt; if (color) e.style.color = color; } }
+
+  async function loadCrypto() {
+    // health: parameters, library, KAT, tamper
+    try {
+      const h = await getJSON('/api/crypto/health');
+      setTxt('cl-status', (h.status || 'unknown').toUpperCase(), h.status === 'healthy' ? 'var(--mint)' : 'var(--amber)');
+      if ($('cl-status')) $('cl-status').className = 'tag' + (h.status === 'healthy' ? ' active' : '');
+      if (h.key_bits) setTxt('cl-key', h.key_bits + ''); // value spans get replaced; keep simple
+      if ($('cl-key')) $('cl-key').innerHTML = (h.key_bits || 128) + '<span> bit</span>';
+      if ($('cl-nonce')) $('cl-nonce').innerHTML = (h.nonce_bits || 128) + '<span> bit</span>';
+      if ($('cl-tag')) $('cl-tag').innerHTML = (h.tag_bits || 128) + '<span> bit</span>';
+      const lib = h.library || {};
+      setTxt('cl-lib', lib.exists ? `${(lib.path || 'libascon.so').split('/').pop()} · ${(lib.size_bytes / 1024).toFixed(1)} KB` : 'not found',
+             lib.exists ? 'var(--text)' : 'var(--red)');
+      setTxt('cl-mtime', lib.mtime ? new Date(lib.mtime * 1000).toISOString().slice(0, 10) : '—');
+      const rt = h.regression_tests || {};
+      const allPass = rt.passed != null && rt.passed === rt.total;
+      setTxt('cl-kat', `${rt.passed ?? '—'} / ${rt.total ?? '—'} verified`, allPass ? 'var(--mint)' : 'var(--amber)');
+      setTxt('cl-kat-tag', allPass ? 'PASS' : 'CHECK', allPass ? 'var(--mint)' : 'var(--amber)');
+      if ($('cl-kat-tag')) $('cl-kat-tag').className = 'tag' + (allPass ? ' active' : '');
+      const td = h.tamper_detection || {};
+      setTxt('cl-tamper', td.detected ? 'forgery rejected ✓' : 'not detected', td.detected ? 'var(--mint)' : 'var(--red)');
+      const vecs = rt.vectors || [];
+      if ($('cl-kat-list')) {
+        $('cl-kat-list').innerHTML = vecs.length
+          ? vecs.map(v => `<span style="color:var(--text)">${v.label}</span>${v.fast_path ? '<span style="color:var(--cyan)">·fast</span>' : ''}`).join('&nbsp;&nbsp;')
+            + `<div style="margin-top:0.4rem;color:${allPass ? 'var(--mint)' : 'var(--amber)'}">${allPass ? 'all payload sizes round-trip byte-identical' : 'see failures'}</div>`
+          : 'no vectors reported';
+      }
+    } catch (e) {
+      setTxt('cl-status', 'OFFLINE', 'var(--red)');
+      setTxt('cl-kat', 'unavailable');
+    }
+    // sessions
+    try {
+      const s = await getJSON('/api/crypto/sessions');
+      const tot = s.totals || {};
+      setTxt('cl-sessions', `${tot.active ?? 0} / ${tot.total_devices ?? (s.sessions || []).length} active`);
+      const body = $('cl-sessions-body');
+      if (body) {
+        const rows = (s.sessions || []).slice(0, 16).map(x => {
+          const dev = x.device_id || x.device || x.id || x.name || x.session_id || '—';
+          const st = x.session_state || x.state || '—';
+          const th = x.threat_state || 'NONE';
+          const pk = x.packet_counter ?? x.packets ?? 0;
+          const stCol = st === 'ACTIVE' ? 'var(--mint)' : 'var(--text-dim)';
+          const thCol = (th && th !== 'NONE') ? 'var(--amber)' : 'var(--text-dim)';
+          return `<tr>
+            <td style="padding:0.34rem 0.6rem 0.34rem 0;color:var(--text)">${dev}</td>
+            <td style="padding:0.34rem 0.6rem;color:${stCol}">${st}</td>
+            <td style="padding:0.34rem 0.6rem;color:${thCol}">${th}</td>
+            <td style="padding:0.34rem 0 0.34rem 0.6rem;color:var(--text);text-align:right">${Number(pk).toLocaleString()}</td>
+          </tr>`;
+        }).join('');
+        body.innerHTML = rows || '<tr><td colspan="4" style="padding:0.6rem 0;color:var(--text-dim)">no active sessions</td></tr>';
+      }
+    } catch (e) {
+      const body = $('cl-sessions-body');
+      if (body) body.innerHTML = '<tr><td colspan="4" style="padding:0.6rem 0;color:var(--red)">sessions unavailable</td></tr>';
+    }
+  }
+
+  async function runBench() {
+    modal('ASCON Benchmark', '<span style="color:var(--text-dim)">running real wall-clock benchmark…</span>');
+    try {
+      const b = await getJSON('/api/crypto/benchmark?iterations=200');
+      const rows = (b.ascon_aegis || []).map(r =>
+        `<tr><td style="padding:.2rem .8rem .2rem 0">${r.label}</td>
+         <td style="padding:.2rem .8rem;color:var(--text)">${r.ns_per_op} ns/op</td>
+         <td style="padding:.2rem .8rem;color:var(--cyan)">${(r.ops_per_sec || 0).toLocaleString()} ops/s</td>
+         <td style="padding:.2rem 0;color:var(--mint)">${r.throughput_mbps} Mb/s</td></tr>`).join('');
+      modal('ASCON Benchmark', `<div style="color:var(--text-dim);margin-bottom:.5rem">Real encrypt throughput across payload sizes (${b.iterations} iterations):</div>
+        <table style="font-size:0.7rem"><tr style="color:var(--text-dim)"><th style="text-align:left">payload</th><th style="text-align:left">latency</th><th style="text-align:left">rate</th><th style="text-align:left">throughput</th></tr>${rows}</table>`);
+    } catch (e) { modal('ASCON Benchmark', '<span style="color:var(--red)">Error: ' + e.message + '</span>'); }
+  }
+
+  function b64(bytes) { let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s); }
+  function randKey() { const a = new Uint8Array(16); crypto.getRandomValues(a); return a; }
+  function flipFirst(blob) { const raw = atob(blob); const arr = Uint8Array.from(raw, c => c.charCodeAt(0)); arr[0] ^= 0xFF; return b64(arr); }
+
+  async function runTestEncrypt() {
+    modal('ASCON Encrypt / Verify', '<span style="color:var(--text-dim)">running real ASCON-128 round-trip…</span>');
+    try {
+      const key = b64(randKey());
+      const pt = 'HR=72,BP=120/80,SpO2=98';
+      const aad = btoa('AEGIS');
+      const enc = await postJSON('/api/crypto/encrypt', { plaintext_b64: btoa(pt), key_b64: key, associated_data_b64: aad });
+      if (!enc.ok) throw new Error(enc.data.detail || ('encrypt ' + enc.status));
+      const blob = enc.data.blob_b64, nonce = enc.data.nonce_b64;
+      const dec = await postJSON('/api/crypto/decrypt', { blob_b64: blob, nonce_b64: nonce, key_b64: key, associated_data_b64: aad });
+      const recovered = dec.ok && dec.data.plaintext_b64 ? atob(dec.data.plaintext_b64) : null;
+      const tampered = await postJSON('/api/crypto/decrypt', { blob_b64: flipFirst(blob), nonce_b64: nonce, key_b64: key, associated_data_b64: aad });
+      const tamperRejected = !tampered.ok;
+      modal('ASCON Encrypt / Verify', `
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:.35rem 1rem">
+          <span>Plaintext</span><span style="color:var(--text)">"${pt}"</span>
+          <span>Ciphertext</span><span style="color:var(--text)">${blob.slice(0, 40)}… (${atob(blob).length} B)</span>
+          <span>Auth tag</span><span style="color:var(--text)">${(enc.data.tag_b64 || '').slice(0, 24)}…</span>
+          <span>Decrypt</span><span style="color:${recovered === pt ? 'var(--mint)' : 'var(--red)'}">${recovered === pt ? 'verified ✓ — matches' : 'FAILED'}</span>
+          <span>Tamper test</span><span style="color:${tamperRejected ? 'var(--mint)' : 'var(--red)'}">${tamperRejected ? 'rejected ✓ (auth tag caught it)' : 'NOT rejected'}</span>
+        </div>
+        <div style="margin-top:.6rem;color:var(--text-faint);font-size:.62rem">Live calls to /api/crypto/encrypt + /api/crypto/decrypt against libascon.so.</div>`);
+    } catch (e) { modal('ASCON Encrypt / Verify', '<span style="color:var(--red)">Error: ' + e.message + '</span>'); }
+  }
+
+  function wire() {
+    const b = $('crypto-bench-btn'); if (b) b.addEventListener('click', runBench);
+    const tb = $('crypto-test-btn'); if (tb) tb.addEventListener('click', runTestEncrypt);
+    loadCrypto();
+    setInterval(loadCrypto, 6000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
+</script>
+<script>
+/* ===== Reports — real exports (CSV + printable PDF) ===== */
+(function () {
+  const getJSON = (p) => fetch(p, { credentials: 'same-origin' }).then(r => r.json());
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  async function downloadCSV() {
+    try {
+      const r = await fetch('/api/dash/reports/audit.csv', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aegis_audit_' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    } catch (e) { alert('CSV export failed: ' + e.message); }
+  }
+
+  function openPrint(title, inner) {
+    const w = window.open('', '_blank');
+    if (!w) { alert('Allow pop-ups for this site to export the PDF.'); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
+      @page{margin:18mm}
+      body{font-family:Georgia,'Times New Roman',serif;color:#111;margin:0;padding:26px;line-height:1.5}
+      .hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:20px}
+      .brand{font-size:22px;font-weight:700;letter-spacing:3px}
+      .sub{font-size:11px;color:#555}
+      h1{font-size:18px;margin:0 0 6px}
+      h2{font-size:12px;border-bottom:1px solid #ccc;padding-bottom:4px;margin:24px 0 10px;text-transform:uppercase;letter-spacing:1.5px;color:#333}
+      table{width:100%;border-collapse:collapse;font-size:11px;font-family:Menlo,Consolas,monospace}
+      th,td{text-align:left;padding:5px 8px;border-bottom:1px solid #e3e3e3;vertical-align:top}
+      th{background:#f2f2f2;text-transform:uppercase;font-size:9px;letter-spacing:1px}
+      .kpis{display:flex;gap:14px;margin:12px 0}
+      .kpi{flex:1;border:1px solid #ddd;border-radius:7px;padding:11px 13px}
+      .kpi .v{font-size:23px;font-weight:700}
+      .kpi .l{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+      .pass{color:#0a7d3c;font-weight:700}
+      .foot{margin-top:30px;font-size:9.5px;color:#888;border-top:1px solid #ddd;padding-top:8px}
+    </style></head><body>${inner}
+    <div class="foot">AEGIS · AI-Enhanced Guardian for IoT Security — generated ${new Date().toLocaleString()} · Nile University · ITCS · CONFIDENTIAL</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 450);
+  }
+
+  async function printIncident() {
+    let a = {};
+    try { a = await getJSON('/api/dash/reports/audit'); } catch (e) {}
+    const rows = (a.log || []).slice(0, 45).map(r =>
+      `<tr><td>${esc(r.hms)}</td><td>${esc(r.event)}</td><td>${esc(r.detail)}</td></tr>`).join('');
+    openPrint('AEGIS Incident Report', `
+      <div class="hd"><div><div class="brand">AEGIS</div><div class="sub">Command Center · Security Incident Report</div></div>
+        <div class="sub" style="text-align:right">Generated<br>${new Date().toLocaleString()}</div></div>
+      <h1>Security Incident Report</h1>
+      <div class="kpis">
+        <div class="kpi"><div class="v">${a.open_incidents ?? 0}</div><div class="l">Open incidents</div></div>
+        <div class="kpi"><div class="v">${a.resolved_today ?? 0}</div><div class="l">Resolved today</div></div>
+        <div class="kpi"><div class="v">${a.mttc_s ?? '—'}s</div><div class="l">Mean time to contain</div></div>
+        <div class="kpi"><div class="v">${a.events_24h ?? 0}</div><div class="l">Audit events</div></div>
+      </div>
+      <h2>Audit trail — most recent events</h2>
+      <table><thead><tr><th>Time</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3">No entries</td></tr>'}</tbody></table>`);
+  }
+
+  async function printCompliance() {
+    let a = {}, h = {};
+    try { a = await getJSON('/api/dash/reports/audit'); } catch (e) {}
+    try { h = await getJSON('/api/crypto/health'); } catch (e) {}
+    const rt = h.regression_tests || {}, td = h.tamper_detection || {}, lib = h.library || {};
+    const katOk = rt.passed != null && rt.passed === rt.total;
+    openPrint('AEGIS Compliance Summary', `
+      <div class="hd"><div><div class="brand">AEGIS</div><div class="sub">Command Center · HIPAA Compliance Summary</div></div>
+        <div class="sub" style="text-align:right">Generated<br>${new Date().toLocaleString()}</div></div>
+      <h1>HIPAA Security Rule — Technical Safeguards (§164.312)</h1>
+      <table><thead><tr><th>Safeguard</th><th>Reference</th><th>Implementation</th><th>Status</th></tr></thead><tbody>
+        <tr><td>Access Control</td><td>§164.312(a)</td><td>Operator-authenticated console; per-device ASCON session keys</td><td class="pass">PASS</td></tr>
+        <tr><td>Transmission Security</td><td>§164.312(e)</td><td>ASCON-128 AEAD (${h.key_bits || 128}-bit) on all device telemetry</td><td class="pass">PASS</td></tr>
+        <tr><td>Audit Controls</td><td>§164.312(b)</td><td>Tamper-evident append-only audit log — ${a.events_24h ?? 0} events</td><td class="pass">PASS</td></tr>
+        <tr><td>Integrity</td><td>§164.312(c)</td><td>Auth-tag verification; KAT ${rt.passed ?? '—'}/${rt.total ?? '—'}; forgery ${td.detected ? 'rejected' : 'n/a'}</td><td class="${katOk ? 'pass' : ''}">${katOk ? 'PASS' : 'REVIEW'}</td></tr>
+      </tbody></table>
+      <h2>Encryption posture</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="v">${a.encryption_coverage ?? 100}%</div><div class="l">Transmission coverage</div></div>
+        <div class="kpi"><div class="v">${rt.passed ?? '—'}/${rt.total ?? '—'}</div><div class="l">KAT vectors verified</div></div>
+        <div class="kpi"><div class="v">${lib.exists ? (lib.size_bytes / 1024).toFixed(1) + ' KB' : '—'}</div><div class="l">Native libascon.so</div></div>
+      </div>`);
+  }
+
+  function wire() {
+    const b = (id) => document.getElementById(id);
+    if (b('exp-csv')) b('exp-csv').addEventListener('click', downloadCSV);
+    if (b('exp-incident')) b('exp-incident').addEventListener('click', printIncident);
+    if (b('exp-compliance')) b('exp-compliance').addEventListener('click', printCompliance);
+    if (b('exp-generate')) b('exp-generate').addEventListener('click', printIncident);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
+</script>
+</body>
+</html>

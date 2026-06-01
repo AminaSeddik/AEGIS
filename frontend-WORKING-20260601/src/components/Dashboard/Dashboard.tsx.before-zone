@@ -1,0 +1,419 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTheme } from '../../ThemeContext';
+import { 
+  AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
+import { getDashboardStats, getActiveThreats, createWebSocket } from '../../services/api';
+import StatusLED, { LEDStatus } from '../StatusLED/StatusLED';
+
+interface Threat {
+  id: number;
+  timestamp: string;
+  threat_type: string;
+  severity: string;
+  confidence: number;
+  device_id: string;
+  device_name: string;
+  status: string;
+  description: string;
+}
+
+interface DashboardStats {
+  network_status: string;
+  active_threats: number;
+  online_devices: number;
+  total_devices: number;
+  threats_prevented: number;
+  uptime: string;
+}
+
+interface TrafficPoint {
+  time: string;
+  packets: number;
+  type: string;
+}
+
+const ALL_ATTACK_TYPES = [
+  { key: 'DDoS', name: 'DDoS', color: '#ef4444' },
+  { key: 'DoS', name: 'DoS', color: '#f97316' },
+  { key: 'ICMP_Flood', name: 'ICMP Flood', color: '#06b6d4' },
+  { key: 'ARP_Spoofing', name: 'ARP Spoofing', color: '#10b981' },
+  { key: 'MQTT_Attack', name: 'MQTT Attack', color: '#ec4899' },
+  { key: 'Ransomware', name: 'Ransomware', color: '#8b5cf6' },
+  { key: 'Reconnaissance', name: 'Reconnaissance', color: '#6366f1' },
+  { key: 'Data_Exfiltration', name: 'Data Exfiltration', color: '#f59e0b' },
+  { key: 'Benign', name: 'Benign', color: '#22c55e' },
+];
+
+const ATTACK_COLOR_MAP: Record<string, string> = {};
+ALL_ATTACK_TYPES.forEach(a => { ATTACK_COLOR_MAP[a.key] = a.color; });
+
+// Hospital zones for department-level status indicators
+const HOSPITAL_ZONES = [
+  { key: 'ICU',  label: 'Intensive Care' },
+  { key: 'ER',   label: 'Emergency Room' },
+  { key: 'OR',   label: 'Operating Rooms' },
+  { key: 'WARD', label: 'General Ward' },
+];
+
+const Dashboard: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [stats, setStats] = useState<DashboardStats>({
+    network_status: 'secure',
+    active_threats: 0,
+    online_devices: 85,
+    total_devices: 85,
+    threats_prevented: 0,
+    uptime: '99.97%',
+  });
+  const [threats, setThreats] = useState<Threat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [wsConnected, setWsConnected] = useState(false);
+  
+  const [trafficData, setTrafficData] = useState<TrafficPoint[]>([]);
+  const [attackCounts, setAttackCounts] = useState<Record<string, number>>({});
+  const [attackHistory, setAttackHistory] = useState<Record<string, number[]>>({});
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [currentAttack, setCurrentAttack] = useState<string>('None');
+  
+  const wsRef = useRef<any>(null);
+
+  const fetchNetworkData = useCallback(async () => {
+    try {
+      const [trafficRes, attackRes] = await Promise.all([
+        fetch('http://localhost:8000/api/network/traffic'),
+        fetch('http://localhost:8000/api/network/attacks')
+      ]);
+      
+      if (trafficRes.ok) {
+        const data = await trafficRes.json();
+        if (data.history && data.history.length > 0) {
+          const transformed = data.history.slice(-30).map((point: any) => ({
+            time: point.time.split(':').slice(1).join(':'),
+            packets: Math.round(point.packets / 1000),
+            type: point.type,
+          }));
+          setTrafficData(transformed);
+          
+          const newHistory: Record<string, number[]> = {};
+          ALL_ATTACK_TYPES.forEach(a => { newHistory[a.key] = []; });
+          
+          data.history.slice(-15).forEach((point: any) => {
+            ALL_ATTACK_TYPES.forEach(a => {
+              if (point.type === a.key) {
+                newHistory[a.key].push(Math.round(point.packets / 1000));
+              } else {
+                newHistory[a.key].push(0);
+              }
+            });
+          });
+          setAttackHistory(newHistory);
+          
+          const latest = data.history[data.history.length - 1];
+          if (latest) {
+            setCurrentAttack(latest.type);
+            setLastUpdate(new Date());
+          }
+        }
+      }
+      
+      if (attackRes.ok) {
+        const data = await attackRes.json();
+        if (data.counts) setAttackCounts(data.counts);
+      }
+    } catch (error) {
+      console.error('Fetch error:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [statsData, threatsData] = await Promise.all([getDashboardStats(), getActiveThreats()]);
+        if (statsData) setStats(statsData);
+        if (Array.isArray(threatsData)) setThreats(threatsData);
+        setLoading(false);
+      } catch (error) { setLoading(false); }
+    };
+    fetchAll();
+    fetchNetworkData();
+  }, [fetchNetworkData]);
+
+  useEffect(() => {
+    const fastInterval = setInterval(() => {
+      fetchNetworkData();
+      getDashboardStats().then(s => s && setStats(s));
+      getActiveThreats().then(t => Array.isArray(t) && setThreats(t));
+    }, 500);
+    return () => clearInterval(fastInterval);
+  }, [fetchNetworkData]);
+
+  useEffect(() => {
+    const ws = createWebSocket((data) => {
+      setWsConnected(true);
+      if (data.type === 'threat' || data.type === 'traffic') {
+        setCurrentAttack(data.data?.threat_type || 'Unknown');
+        setLastUpdate(new Date());
+        fetchNetworkData();
+        getDashboardStats().then(s => s && setStats(s));
+        getActiveThreats().then(t => Array.isArray(t) && setThreats(t));
+      }
+    });
+    wsRef.current = ws;
+    return () => ws.close();
+  }, [fetchNetworkData]);
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'secure': return 'text-green-500';
+      case 'warning': return 'text-yellow-500';
+      case 'critical': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  // Per-zone threat counting: matches device_id or device_name against zone key
+  const getZoneThreatCount = (zoneKey: string): number => {
+    return threats.filter(t => {
+      const id = (t.device_id || '').toUpperCase();
+      const name = (t.device_name || '').toUpperCase();
+      const pattern = zoneKey.toUpperCase() + "-";
+      return (id.includes(pattern) || name.includes(pattern)) && t.status === 'active';
+    }).length;
+  };
+
+  const getZoneStatus = (zoneKey: string): LEDStatus => {
+    const count = getZoneThreatCount(zoneKey);
+    if (count > 0) return 'threat';
+    return 'healthy';
+  };
+
+  const pieData = ALL_ATTACK_TYPES
+    .filter(a => a.key !== 'Benign' && (attackCounts[a.key] || 0) > 0)
+    .map(a => ({ name: a.name, value: attackCounts[a.key] || 0, color: a.color }));
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`p-4 ${isDark ? 'bg-gray-900' : 'bg-gray-100'} min-h-screen`}>
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Security Dashboard</h1>
+          <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>Real-time threat monitoring - All 9 attack types</p>
+        </div>
+        <div className="text-right">
+          <div className="flex items-center gap-2 justify-end">
+            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+            <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{wsConnected ? 'LIVE' : 'Connecting...'}</span>
+            <span className={`ml-2 px-2 py-1 rounded text-xs font-bold ${
+              currentAttack === 'Benign' ? 'bg-green-500/20 text-green-400' :
+              currentAttack === 'None' ? 'bg-gray-500/20 text-gray-400' : 'bg-red-500/20 text-red-400 animate-pulse'
+            }`}>{currentAttack}</span>
+          </div>
+          <p className={`text-xl font-mono ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>{currentTime.toLocaleTimeString()}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className={`p-3 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Status</span>
+          <p className={`text-lg font-bold ${getStatusColor(stats.network_status)}`}>{stats.network_status.toUpperCase()}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Active Threats</span>
+          <p className={`text-lg font-bold ${stats.active_threats > 0 ? 'text-red-500' : 'text-green-500'}`}>{stats.active_threats}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Devices</span>
+          <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{stats.online_devices}/{stats.total_devices}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Blocked</span>
+          <p className="text-lg font-bold text-green-500">{stats.threats_prevented}</p>
+        </div>
+      </div>
+
+      {/* Department Status - per-zone LED summary */}
+      <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-4`}>
+        <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>Department Status</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {HOSPITAL_ZONES.map(zone => {
+            const status = getZoneStatus(zone.key);
+            const threatCount = getZoneThreatCount(zone.key);
+            return (
+              <div key={zone.key} className={`p-3 rounded-lg flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <div>
+                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{zone.label}</p>
+                  <p className={`text-sm font-bold ${status === 'threat' ? 'text-red-500' : 'text-emerald-500'}`}>
+                    {status === 'threat' ? `${threatCount} ALERT${threatCount > 1 ? 'S' : ''}` : 'HEALTHY'}
+                  </p>
+                </div>
+                <StatusLED status={status} size="lg" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-4`}>
+        <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>Individual Attack Monitoring (9 Types)</h3>
+        <div className="grid grid-cols-3 lg:grid-cols-9 gap-2">
+          {ALL_ATTACK_TYPES.map((attack) => {
+            const count = attackCounts[attack.key] || 0;
+            const isActive = currentAttack === attack.key;
+            const history = attackHistory[attack.key] || [];
+            const chartData = history.map((val, idx) => ({ idx, value: val }));
+            
+            return (
+              <div key={attack.key} className={`p-2 rounded-lg transition-all duration-200 ${isActive ? 'ring-2 ring-white scale-105 shadow-lg' : ''}`}
+                style={{ backgroundColor: `${attack.color}${count > 0 ? '30' : '10'}` }}>
+                <div className="flex justify-between items-start mb-1">
+                  <span className={`text-xs font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{attack.name}</span>
+                  {isActive && <span className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: attack.color }}></span>}
+                </div>
+                <div className="h-10 mb-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData.length > 0 ? chartData : [{idx: 0, value: 0}]}>
+                      <Area type="stepAfter" dataKey="value" stroke={attack.color} fill={attack.color} fillOpacity={0.3} strokeWidth={1} dot={false} animationDuration={100} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="text-center">
+                  <span className="text-lg font-bold" style={{ color: attack.color }}>{count}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg lg:col-span-2`}>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Combined Network Traffic</h3>
+            <span className="text-xs text-green-400">Updated: {lastUpdate.toLocaleTimeString()}</span>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={trafficData.length > 0 ? trafficData : [{time: '...', packets: 0, type: 'None'}]}>
+              <defs>
+                <linearGradient id="trafficGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.5}/>
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
+              <XAxis dataKey="time" stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={9} interval="preserveStartEnd" />
+              <YAxis stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={9} tickFormatter={(v) => `${v}K`} />
+              <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' }}
+                formatter={(value: any) => [`${value}K pkt/s`, "Traffic"]} />
+              <Area type="stepAfter" dataKey="packets" stroke="#ef4444" strokeWidth={2} fill="url(#trafficGradient)" animationDuration={100} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="flex gap-0.5 mt-2">
+            {trafficData.slice(-50).map((point, i) => (
+              <div key={i} className="flex-1 h-3 rounded-sm" style={{ backgroundColor: ATTACK_COLOR_MAP[point.type] || '#374151' }} title={`${point.time}: ${point.type}`} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {ALL_ATTACK_TYPES.map(a => (
+              <div key={a.key} className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: a.color }}></div>
+                <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{a.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>Attack Distribution</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={pieData.length > 0 ? pieData : [{name: 'No attacks', value: 1, color: '#22c55e'}]} cx="50%" cy="50%"
+                innerRadius={30} outerRadius={70} paddingAngle={2} dataKey="value" animationDuration={200}>
+                {(pieData.length > 0 ? pieData : [{name: 'No attacks', value: 1, color: '#22c55e'}]).map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#fff', border: 'none', borderRadius: '8px', fontSize: '11px' }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="space-y-1">
+            {pieData.map((entry, i) => (
+              <div key={i} className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                  <span className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{entry.name}</span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: entry.color }}>{entry.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>Recent Threats</h3>
+          <span className={`text-xs px-2 py-1 rounded ${threats.length > 0 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{threats.length} detected</span>
+        </div>
+        {threats.length === 0 ? (
+          <p className={`text-center py-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No threats. Run a simulation.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                  <th className="text-left py-1">Time</th>
+                  <th className="text-left py-1">Type</th>
+                  <th className="text-left py-1">Severity</th>
+                  <th className="text-left py-1">Confidence</th>
+                  <th className="text-left py-1">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {threats.slice(0, 6).map((threat) => (
+                  <tr key={threat.id} className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <td className={`py-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{new Date(threat.timestamp).toLocaleTimeString()}</td>
+                    <td className="py-2">
+                      <span className="px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: `${ATTACK_COLOR_MAP[threat.threat_type] || '#888'}30`, color: ATTACK_COLOR_MAP[threat.threat_type] || '#888' }}>
+                        {threat.threat_type}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${threat.severity === 'critical' ? 'bg-red-500/20 text-red-400' : threat.severity === 'high' ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'}`}>{threat.severity}</span>
+                    </td>
+                    <td className="py-2">
+                      <div className="w-12 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${threat.confidence}%` }}></div>
+                      </div>
+                    </td>
+                    <td className="py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${threat.status === 'active' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{threat.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

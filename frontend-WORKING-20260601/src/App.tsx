@@ -1,0 +1,390 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ThemeProvider, useTheme } from './ThemeContext';
+import Dashboard from './components/Dashboard/Dashboard';
+import ThreatDetection from './components/ThreatDetection/ThreatDetection';
+import DeviceManagement from './components/DeviceManagement/DeviceManagement';
+import Analytics from './components/Analytics/Analytics';
+import NetworkTopology from './components/NetworkTopology/NetworkTopology';
+import HospitalMap from './components/HospitalMap/HospitalMap';
+import Reports from './components/Reports/Reports';
+import CryptoMonitor from './components/CryptoMonitor/CryptoMonitor';
+import AIMonitor from './components/AIMonitor/AIMonitor';
+import Settings from './components/Settings/Settings';
+
+interface SystemStats {
+  cpu_percent: number;
+  memory_percent: number;
+  memory_used_gb: number;
+  network_speed_mbps: number;
+}
+
+interface Notification {
+  id: number;
+  type: 'threat' | 'info' | 'warning' | 'success';
+  title: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;
+}
+
+const ATTACK_MESSAGES: Record<string, { title: string; message: string }> = {
+  'DDoS': { title: 'DDoS Attack Detected', message: 'High volume distributed traffic detected' },
+  'DoS': { title: 'DoS Attack Detected', message: 'Denial of service attempt detected' },
+  'ICMP_Flood': { title: 'ICMP Flood Attack', message: 'ICMP ping flood detected' },
+  'ARP_Spoofing': { title: 'ARP Spoofing Detected', message: 'ARP cache poisoning attempt' },
+  'MQTT_Attack': { title: 'MQTT Protocol Attack', message: 'Malicious MQTT activity detected' },
+  'Ransomware': { title: 'Ransomware Detected', message: 'Encryption attempt blocked' },
+  'Reconnaissance': { title: 'Reconnaissance Activity', message: 'Network scanning detected' },
+  'Data_Exfiltration': { title: 'Data Exfiltration Alert', message: 'Unusual data transfer detected' },
+};
+
+const getTimeAgo = (date: Date): string => {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  if (seconds < 5) return 'Just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
+const AppContent: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [systemStats, setSystemStats] = useState<SystemStats>({
+    cpu_percent: 0,
+    memory_percent: 0,
+    memory_used_gb: 0,
+    network_speed_mbps: 0
+  });
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [, setTick] = useState(0);
+  const notificationIdRef = useRef(0);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const isDark = theme === 'dark';
+
+  const addThreatNotification = useCallback((threatType: string, deviceName?: string) => {
+    if (threatType === 'Benign') return;
+    const attackInfo = ATTACK_MESSAGES[threatType] || { title: `${threatType} Detected`, message: 'Suspicious activity detected' };
+    const newNotification: Notification = {
+      id: ++notificationIdRef.current,
+      type: 'threat',
+      title: attackInfo.title,
+      message: deviceName ? `${attackInfo.message} from ${deviceName}` : attackInfo.message,
+      timestamp: new Date(),
+      read: false,
+    };
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50));
+  }, []);
+
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket('ws://localhost:8000/ws');
+        ws.onopen = () => { console.log('App WebSocket connected'); };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'threat' && data.data?.threat_type) {
+              addThreatNotification(data.data.threat_type, data.data.device_name);
+            }
+          } catch (e) { /* ignore */ }
+        };
+        ws.onclose = () => { setTimeout(connectWebSocket, 3000); };
+        wsRef.current = ws;
+      } catch (e) { setTimeout(connectWebSocket, 3000); }
+    };
+    connectWebSocket();
+    return () => wsRef.current?.close();
+  }, [addThreatNotification]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) setShowNotifications(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const fetchSystemStats = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/system-stats');
+        if (response.ok) {
+          const data = await response.json();
+          setSystemStats({
+            cpu_percent: data.cpu_percent || 0,
+            memory_percent: data.memory_percent || 0,
+            memory_used_gb: data.memory_used_gb || 0,
+            network_speed_mbps: data.network_speed_mbps || 0
+          });
+          setBackendConnected(true);
+        } else {
+          setBackendConnected(false);
+        }
+      } catch (error) {
+        setBackendConnected(false);
+      }
+    };
+    fetchSystemStats();
+    const interval = setInterval(fetchSystemStats, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
+    { id: 'topology', label: 'Network Topology', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> },
+    { id: 'hospital', label: 'Hospital Map', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> },
+    { id: 'threats', label: 'Threat Detection', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> },
+    { id: 'devices', label: 'Device Management', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg> },
+    { id: 'analytics', label: 'Analytics', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
+    { id: 'reports', label: 'Daily Reports', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
+    { id: 'crypto', label: 'Crypto Monitor', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> },
+    { id: 'ai-pipeline', label: 'AI + Crypto Pipeline', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
+    { id: 'settings', label: 'Settings', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
+  ];
+
+  const getStatColor = (value: number) => {
+    if (value > 80) return isDark ? 'text-red-400' : 'text-red-600';
+    if (value > 60) return isDark ? 'text-yellow-400' : 'text-yellow-600';
+    return isDark ? 'text-emerald-400' : 'text-emerald-600';
+  };
+
+  const getStatDot = (value: number) => {
+    if (value > 80) return 'bg-red-500';
+    if (value > 60) return 'bg-yellow-500';
+    return 'bg-emerald-500';
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const markAsRead = (id: number) => setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAllAsRead = () => setNotifications(notifications.map(n => ({ ...n, read: true })));
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'threat': return <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center"><svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>;
+      case 'warning': return <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center"><svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>;
+      case 'success': return <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center"><svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>;
+      default: return <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center"><svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>;
+    }
+  };
+
+  return (
+    <div className={`flex h-screen ${isDark ? 'bg-[#0a0f1c]' : 'bg-slate-100'} transition-colors duration-300`}>
+      <aside className={`w-72 ${isDark ? 'bg-[#0d1424] border-gray-800' : 'bg-white border-slate-200'} border-r flex flex-col`}>
+        <div className={`p-6 border-b ${isDark ? 'border-gray-800' : 'border-slate-200'}`}>
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+            </div>
+            <h1 className={`${isDark ? 'text-white' : 'text-slate-900'} font-black text-2xl`}>AEGIS</h1>
+          </div>
+          <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'} font-medium leading-relaxed`}>
+            <span className="text-blue-500 font-bold">A</span>wakened{' '}
+            <span className="text-purple-500 font-bold">E</span>ntity{' '}
+            <span className="text-cyan-500 font-bold">G</span>uarding{' '}
+            <span className="text-emerald-500 font-bold">I</span>nvisible{' '}
+            <span className="text-orange-500 font-bold">S</span>ystems
+          </div>
+          <div className={`mt-2 text-[10px] ${isDark ? 'text-gray-500' : 'text-slate-500'} italic tracking-widest uppercase`}>
+            "Silent. Watching. Always."
+          </div>
+        </div>
+
+        <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-800' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${backendConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+              <span className={`text-sm font-medium ${backendConnected ? 'text-emerald-500' : 'text-red-500'}`}>
+                {backendConnected ? 'ONLINE' : 'OFFLINE'}
+              </span>
+            </div>
+            <button onClick={toggleTheme} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
+              {isDark ? (
+                <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              ) : (
+                <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <nav className="flex-1 py-4 overflow-y-auto">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center space-x-3 px-6 py-3.5 transition-all ${
+                activeTab === item.id
+                  ? `${isDark ? 'bg-blue-600/20 text-blue-400' : 'bg-blue-100 text-blue-600'} border-r-2 border-blue-500`
+                  : `${isDark ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-100'}`
+              }`}
+            >
+              {item.icon}
+              <span className="font-medium">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className={`p-6 border-t ${isDark ? 'border-gray-800' : 'border-slate-200'}`}>
+          <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-slate-500'}`}>
+            <p>Version 1.0.0</p>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className={`${isDark ? 'bg-[#0d1424] border-gray-800' : 'bg-white border-slate-200'} border-b px-6 py-4`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {menuItems.find(m => m.id === activeTab)?.label}
+              </h2>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${getStatDot(systemStats.cpu_percent)}`}></div>
+                  <span className={`text-sm ${getStatColor(systemStats.cpu_percent)}`}>
+                    CPU: {systemStats.cpu_percent.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${getStatDot(systemStats.memory_percent)}`}></div>
+                  <span className={`text-sm ${getStatColor(systemStats.memory_percent)}`}>
+                    MEM: {systemStats.memory_used_gb.toFixed(1)}GB
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <button onClick={toggleTheme} className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${isDark ? 'bg-gray-800 text-yellow-400' : 'bg-slate-100 text-slate-700'}`}>
+                {isDark ? (
+                  <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><span className="text-sm">Light</span></>
+                ) : (
+                  <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg><span className="text-sm">Dark</span></>
+                )}
+              </button>
+
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`}></div>
+                <span className={`text-sm font-medium ${backendConnected ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {backendConnected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+
+              <div className="relative" ref={notificationRef}>
+                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
+                  <svg className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className={`absolute right-0 mt-2 w-80 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border rounded-xl shadow-2xl z-50 overflow-hidden`}>
+                    <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-slate-200'} flex justify-between items-center`}>
+                      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Notifications</h3>
+                      {unreadCount > 0 && <button onClick={markAllAsRead} className="text-blue-500 text-xs">Mark all read</button>}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className={`p-8 text-center ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
+                          <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                          </svg>
+                          <p className="text-sm">No notifications yet</p>
+                          <p className="text-xs mt-1">Run a simulation to see alerts</p>
+                        </div>
+                      ) : (
+                        notifications.slice(0, 10).map((notif) => (
+                          <div key={notif.id} onClick={() => markAsRead(notif.id)} className={`p-4 border-b ${isDark ? 'border-gray-700 hover:bg-gray-700/50' : 'border-slate-100 hover:bg-slate-50'} cursor-pointer ${!notif.read ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : ''}`}>
+                            <div className="flex space-x-3">
+                              {getNotificationIcon(notif.type)}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>{notif.title}</p>
+                                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'} truncate`}>{notif.message}</p>
+                                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-slate-400'} mt-1`}>{getTimeAgo(notif.timestamp)}</p>
+                              </div>
+                              {!notif.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative" ref={userMenuRef}>
+                <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center space-x-2">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">A</div>
+                  <div className="text-left hidden md:block">
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Aminaa</p>
+                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>Security Officer</p>
+                  </div>
+                </button>
+
+                {showUserMenu && (
+                  <div className={`absolute right-0 mt-2 w-48 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border rounded-xl shadow-2xl z-50 overflow-hidden`}>
+                    <div className={`p-3 border-b ${isDark ? 'border-gray-700' : 'border-slate-200'}`}>
+                      <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Aminaa</p>
+                      <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>aminaa@aegis.health</p>
+                    </div>
+                    <div className="py-1">
+                      <button className={`w-full px-4 py-2 text-left text-sm ${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-slate-700 hover:bg-slate-100'}`}>Profile</button>
+                      <button className={`w-full px-4 py-2 text-left text-sm ${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-slate-700 hover:bg-slate-100'}`}>Settings</button>
+                      <button className={`w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-500/10`}>Sign Out</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto p-6">
+          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'topology' && <NetworkTopology />}
+          {activeTab === 'hospital' && <HospitalMap />}
+          {activeTab === 'threats' && <ThreatDetection />}
+          {activeTab === 'devices' && <DeviceManagement />}
+          {activeTab === 'analytics' && <Analytics />}
+          {activeTab === 'reports' && <Reports />}
+          {activeTab === 'crypto' && <CryptoMonitor />}
+          {activeTab === 'ai-pipeline' && <AIMonitor />}
+          {activeTab === 'settings' && <Settings />}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+};
+
+export default App;
