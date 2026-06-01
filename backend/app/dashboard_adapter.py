@@ -185,24 +185,23 @@ def _build_registry() -> list[dict]:
 
 REGISTRY = _build_registry()
 
-# nine canonical classes the dashboard renders
-CLASS_ORDER = ["Benign", "DDoS", "DoS", "ICMP_Flood", "ARP_Spoofing",
-               "MQTT_Attack", "Ransomware", "Recon", "Exfiltration"]
+# ensemble taxonomy: 5 known classes (CICIoMT2024) + zero-day for anything else
+CLASS_ORDER = ["Benign", "DDoS", "DoS", "ICMP_Flood", "Reconnaissance", "Zero-Day"]
 CLASS_SEVERITY = {"Benign": "info", "DDoS": "crit", "DoS": "high", "ICMP_Flood": "high",
-                  "ARP_Spoofing": "crit", "MQTT_Attack": "high", "Ransomware": "crit",
-                  "Recon": "med", "Exfiltration": "crit"}
-PLAYBOOKS = {"DDoS": "Rate-limit + block source", "DoS": "Rate-limit + block source",
-             "ICMP_Flood": "Rate-limit ICMP", "ARP_Spoofing": "Session rekey + lock port",
-             "MQTT_Attack": "Session rekey + drop client", "Ransomware": "Isolate host + page on-call",
-             "Recon": "Monitor + raise watch", "Exfiltration": "Isolate + block egress"}
+                  "Reconnaissance": "med", "Zero-Day": "crit"}
+PLAYBOOKS = {"DDoS": "Rate-limit + isolate source", "DoS": "Rate-limit + isolate source",
+             "ICMP_Flood": "Rate-limit ICMP", "Reconnaissance": "Monitor + raise watch",
+             "Zero-Day": "Isolate host + page on-call"}
 
 _CLASS_ALIASES = {
     "normal": "Benign", "benign": "Benign", "ddos": "DDoS", "dos": "DoS",
-    "icmp_flood": "ICMP_Flood", "icmp": "ICMP_Flood", "arp_spoofing": "ARP_Spoofing",
-    "arp": "ARP_Spoofing", "arp_spoof": "ARP_Spoofing", "mqtt_attack": "MQTT_Attack",
-    "mqtt": "MQTT_Attack", "ransomware": "Ransomware", "ransom": "Ransomware",
-    "recon": "Recon", "reconnaissance": "Recon", "exfiltration": "Exfiltration",
-    "data_exfiltration": "Exfiltration", "exfil": "Exfiltration",
+    "icmp_flood": "ICMP_Flood", "icmp": "ICMP_Flood",
+    "recon": "Reconnaissance", "reconnaissance": "Reconnaissance",
+    # outside the ensemble's 5 known classes -> flagged zero-day / suspicious
+    "arp_spoofing": "Zero-Day", "arp": "Zero-Day", "arp_spoof": "Zero-Day",
+    "mqtt_attack": "Zero-Day", "mqtt": "Zero-Day", "ransomware": "Zero-Day", "ransom": "Zero-Day",
+    "exfiltration": "Zero-Day", "data_exfiltration": "Zero-Day", "exfil": "Zero-Day",
+    "zero_day": "Zero-Day", "zeroday": "Zero-Day", "suspicious": "Zero-Day",
 }
 _SEV_ALIASES = {"critical": "crit", "crit": "crit", "high": "high", "medium": "med",
                 "med": "med", "moderate": "med", "low": "info", "info": "info", "normal": "info"}
@@ -211,7 +210,8 @@ _SEV_ALIASES = {"critical": "crit", "crit": "crit", "high": "high", "medium": "m
 def norm_class(s) -> str:
     if not s:
         return "Benign"
-    return _CLASS_ALIASES.get(str(s).strip().lower().replace("-", "_").replace(" ", "_"), str(s))
+    key = str(s).strip().lower().replace("-", "_").replace(" ", "_")
+    return _CLASS_ALIASES.get(key, "Zero-Day")
 
 
 def norm_sev(s, fallback="med") -> str:
@@ -378,7 +378,9 @@ def dash_overview(db: Session = Depends(get_db)):
     return {
         "kpis": {"devices_online": len(REGISTRY) - len(blocked), "devices_total": len(REGISTRY),
                  "devices_pct": round((len(REGISTRY) - len(blocked)) / len(REGISTRY) * 100),
-                 "active_threats": active, "network_health": 98.4, "rtt_ms": 14, "loss_pct": 0.02,
+                 "active_threats": active,
+                 "network_health": round(max(0.0, min(100.0,
+                     (len(REGISTRY) - len(blocked)) / max(1, len(REGISTRY)) * 100 - active * 0.5)), 1),
                  "encrypted_flow": 100, "tamper_events": 0, "quarantined": len(blocked)},
         "needs_attention": attn,
         "class_distribution": {"labels": CLASS_ORDER, "data": [counts[c] for c in CLASS_ORDER]},

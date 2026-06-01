@@ -2556,7 +2556,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
           <div class="kpi" style="--kpi-color: var(--mint); --kpi-soft: var(--mint-soft);">
             <div class="kpi-top"><div class="kpi-label">Network Health</div><div class="kpi-badge">OK</div></div>
             <div class="kpi-value">98<span class="unit">.4%</span></div>
-            <div class="kpi-foot"><span>RTT 14ms &middot; Loss 0.02%</span><canvas class="kpi-spark" id="sp3"></canvas></div>
+            <div class="kpi-foot"><span>Composite health index</span><canvas class="kpi-spark" id="sp3"></canvas></div>
           </div>
           <div class="kpi" style="--kpi-color: var(--amber); --kpi-soft: var(--amber-soft);">
             <div class="kpi-top"><div class="kpi-label">Encrypted Flow</div><div class="kpi-badge">ASCON</div></div>
@@ -2572,7 +2572,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
           </div>
           <div class="card">
             <div class="card-head"><div><div class="card-title">Detections &middot; 24h</div><div class="card-sub">By attack class</div></div><span class="tag active">24h</span></div>
-            <div class="donut-wrap"><canvas id="donut"></canvas><div class="donut-center"><div class="n">9</div><div class="l">classes</div></div></div>
+            <div class="donut-wrap"><canvas id="donut"></canvas><div class="donut-center"><div class="n">5</div><div class="l">known&nbsp;+&nbsp;0-day</div></div></div>
           </div>
           <div class="card">
             <div class="card-head"><div><div class="card-title">Throughput</div><div class="card-sub">Packets / sec &middot; 5m</div></div><span class="tag active">5m</span></div>
@@ -2770,7 +2770,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
         <div class="view-head">
           <div>
             <div class="eyebrow">04 · Detection Engine</div>
-            <h1>Nine classes, <em>one verdict.</em></h1>
+            <h1>Five known classes <em>+ zero-day.</em></h1>
           </div>
           <div class="view-actions">
             <button class="btn">Confusion Matrix</button>
@@ -2824,51 +2824,21 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <div class="attack-card">
               <div class="attack-head">
                 <span class="attack-id">CLASS · 04</span>
-                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9 5 9-5M3 7v10l9 5 9-5V7M3 7l9-5 9 5"/></svg></span>
-              </div>
-              <div class="attack-name">ARP Spoof</div>
-              <div class="attack-desc">Falsified ARP responses redirecting medical traffic through attacker for MITM on plaintext segments.</div>
-              <div class="attack-foot"><span>L2 · MITM</span><span class="sev crit">Critical</span></div>
-            </div>
-
-            <div class="attack-card">
-              <div class="attack-head">
-                <span class="attack-id">CLASS · 05</span>
-                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 9l6 6m0-6l-6 6"/></svg></span>
-              </div>
-              <div class="attack-name">MQTT Attack</div>
-              <div class="attack-desc">Malformed CONNECT/PUBLISH, broker hijack, retained-message poisoning — countered by our priority broker.</div>
-              <div class="attack-foot"><span>APP LAYER</span><span class="sev high">High</span></div>
-            </div>
-
-            <div class="attack-card">
-              <div class="attack-head">
-                <span class="attack-id">CLASS · 06</span>
-                <span class="attack-icon"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="M8 10V7a4 4 0 018 0v3"/><circle cx="12" cy="15" r="1.5"/></svg></span>
-              </div>
-              <div class="attack-name">Ransomware</div>
-              <div class="attack-desc">Encryption-based lockdown attempts on imaging workstations and EHR endpoints — caught at flow signature.</div>
-              <div class="attack-foot"><span>HOST</span><span class="sev crit">Critical</span></div>
-            </div>
-
-            <div class="attack-card">
-              <div class="attack-head">
-                <span class="attack-id">CLASS · 07</span>
                 <span class="attack-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
               </div>
-              <div class="attack-name">Recon</div>
-              <div class="attack-desc">Port scans, OS fingerprinting, service enumeration against medical subnets — precursor to lateral movement.</div>
+              <div class="attack-name">Reconnaissance</div>
+              <div class="attack-desc">Port scans, OS fingerprinting and service enumeration against medical subnets — precursor to lateral movement.</div>
               <div class="attack-foot"><span>SCAN</span><span class="sev med">Medium</span></div>
             </div>
 
             <div class="attack-card">
               <div class="attack-head">
-                <span class="attack-id">CLASS · 08</span>
-                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12m-4-4l4 4 4-4"/><path d="M5 21h14"/></svg></span>
+                <span class="attack-id">CLASS · 05</span>
+                <span class="attack-icon"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v6c0 5-4 8-9 9-5-1-9-4-9-9V7z"/><path d="M12 8v4m0 3h.01"/></svg></span>
               </div>
-              <div class="attack-name">Exfiltration</div>
-              <div class="attack-desc">Abnormal outbound flows from medical endpoints — patient record leakage, telemetry siphoning, DNS-tunneled exfil.</div>
-              <div class="attack-foot"><span>EGRESS</span><span class="sev crit">Critical</span></div>
+              <div class="attack-name">Zero-Day</div>
+              <div class="attack-desc">Traffic the ensemble cannot map to a known class — flagged by the autoencoder's reconstruction error for analyst review.</div>
+              <div class="attack-foot"><span>ANOMALY</span><span class="sev crit">Critical</span></div>
             </div>
 
           </div>
@@ -3030,7 +3000,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
         <div class="view-head">
           <div>
             <div class="eyebrow">03 · Asset Inventory</div>
-            <h1>Every device, <em>accounted for.</em></h1>
+            <h1>Device <em>inventory.</em></h1>
             <p>Complete register of monitored medical IoT endpoints — addressing, firmware, encryption and live risk status.</p>
           </div>
           <div class="view-actions">
@@ -3080,7 +3050,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
         <div class="view-head">
           <div>
             <div class="eyebrow">05 · Automated Response</div>
-            <h1>Contain first, <em>page later.</em></h1>
+            <h1>Automated <em>response.</em></h1>
             <p>Every mitigation AEGIS executed automatically, plus the playbooks that govern it. Override any decision in one click.</p>
           </div>
           <div class="view-actions">
@@ -3494,7 +3464,7 @@ window.charts.push(donut); window.__donutChart = donut;
 
 // Traffic
 const tCtx = document.getElementById('traffic').getContext('2d');
-const tData = Array.from({length:30}, () => 200 + Math.random() * 400);
+const tData = Array.from({length:30}, () => 0);  // seeded flat; real data fills on refresh
 const traffic = new Chart(tCtx, {
   type: 'line',
   data: {
@@ -3514,7 +3484,7 @@ const traffic = new Chart(tCtx, {
       },
       {
         label: 'OUT',
-        data: tData.map(v => v * 0.6 + Math.random() * 80),
+        data: tData.map(v => v * 0.6),
         borderColor: getCSSVar('--violet'),
         backgroundColor: (ctx) => {
           const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
