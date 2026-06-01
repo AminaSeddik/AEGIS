@@ -2583,7 +2583,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
         <div class="kpi-row">
           <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
             <span style="width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);flex-shrink:0"></span>
-            <div><div class="kpi-label">Detection Engine</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">Online <span style="color:var(--text-dim);font-size:0.78rem">&middot; RF v2.4</span></div></div>
+            <div><div class="kpi-label">Detection Engine</div><div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text)">Online <span style="color:var(--text-dim);font-size:0.78rem">&middot; Ensemble v2.4</span></div></div>
           </div>
           <div class="card" style="padding:1.05rem 1.25rem; display:flex; align-items:center; gap:0.85rem;">
             <span style="width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);flex-shrink:0"></span>
@@ -2642,7 +2642,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
 
         <div style="display:grid; grid-template-columns: 1.7fr 1fr; gap:1rem; height: calc(100% - 230px); min-height: 360px;">
           <div class="card" style="display:flex; flex-direction:column; min-height:0;">
-            <div class="card-head"><div><div class="card-title">Incident Queue</div><div class="card-sub">Random Forest &middot; 96.22% &middot; 3-confirm rule</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">Critical</span><span class="tag">Open</span></div></div>
+            <div class="card-head"><div><div class="card-title">Incident Queue</div><div class="card-sub">Ensemble &middot; 96.22% &middot; 3-confirm rule</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">Critical</span><span class="tag">Open</span></div></div>
             <div style="flex:1; overflow:auto; min-height:0;">
               <table class="inf-table" id="inf-table">
                 <thead><tr><th>Time</th><th>Source Device</th><th>Attack Class</th><th>Confidence</th><th>Confirm</th><th>Action</th></tr></thead>
@@ -2847,8 +2847,8 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <div class="card" style="padding:1.25rem;">
               <div class="card-head" style="padding-bottom:0.85rem; margin-bottom:0.85rem;">
                 <div>
-                  <div class="card-title">Random Forest</div>
-                  <div class="card-sub">Trained · Validated · Deployed</div>
+                  <div class="card-title">Ensemble</div>
+                  <div class="card-sub">RF + CNN-LSTM + Autoencoder</div>
                 </div>
               </div>
               <div class="model-stats-grid">
@@ -2861,7 +2861,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
                   <div class="l">Macro F1</div>
                 </div>
                 <div class="m-stat">
-                  <div class="n">41</div>
+                  <div class="n">39</div>
                   <div class="l">Features</div>
                 </div>
                 <div class="m-stat">
@@ -2888,11 +2888,9 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <div class="card" style="padding:1.25rem;">
               <div class="snap-title" style="margin-bottom:0.85rem;">Training Sources</div>
               <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                <div class="comp">CICIoMT2024 <span class="s">REAL MEDICAL IOT</span></div>
-                <div class="comp">Bot-IoT <span class="s">BOTNET PATTERNS</span></div>
-                <div class="comp">Edge-IIoTset <span class="s">INDUSTRIAL IOT</span></div>
-                <div class="comp">MQTTset <span class="s">BROKER ATTACKS</span></div>
-                <div class="comp">OMNeT++ Sim <span class="s">HOSPITAL TRAFFIC</span></div>
+                <div class="comp">CICIoMT2024 <span class="s">TRAINING · REAL MEDICAL IOT</span></div>
+                <div class="comp">CICIoT2023 <span class="s">CROSS-DOMAIN VALIDATION</span></div>
+                <div class="comp">OMNeT++ Sim <span class="s">DOMAIN ADAPTATION</span></div>
               </div>
             </div>
           </div>
@@ -3105,7 +3103,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem 2rem;">
                 <div class="snap-row"><span class="label">Version</span><span class="value">v1.0.0</span></div>
                 <div class="snap-row"><span class="label">Uptime</span><span class="value">42d 06h</span></div>
-                <div class="snap-row"><span class="label">Detection model</span><span class="value">RF v2.4</span></div>
+                <div class="snap-row"><span class="label">Detection model</span><span class="value">Ensemble v2.4</span></div>
                 <div class="snap-row"><span class="label">Last retrain</span><span class="value">12 days ago</span></div>
                 <div class="snap-row"><span class="label">Encryption</span><span class="value">ASCON-128a</span></div>
                 <div class="snap-row"><span class="label">Model accuracy</span><span class="value">96.22%</span></div>
@@ -3710,7 +3708,7 @@ function label(x, y, txt, color, size = 14, weight = 500, anchor = 'middle') {
   nodeBox(g.x, g.y, 46, 42, 'var(--surface)', 'var(--red)', grp, true);
   svg('path', { d: `M ${g.x} ${g.y-11} l 11 5 v 6 c 0 6 -5 10 -11 12 c -6 -2 -11 -6 -11 -12 v -6 z`, fill: 'var(--red-soft)', stroke: 'var(--red)', 'stroke-width': 1.3 }, grp);
   label(g.x, g.y + 36, 'GATEWAY · IDS', 'var(--red)', 15, 700);
-  tooltip(grp, 'AEGIS Gateway / IDS', 'Random Forest · 3-confirm · drops attacks');
+  tooltip(grp, 'AEGIS Gateway / IDS', 'Ensemble · 3-confirm · drops attacks');
 })();
 
 // Core switch

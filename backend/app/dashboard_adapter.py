@@ -488,7 +488,7 @@ def dash_detection():
         pass
     return {"model": {"name": "RF + CNN-LSTM + Autoencoder", "version": "v2.4",
                       "accuracy": 96.22, "macro_f1": 0.948, "features": features,
-                      "classes": 9, "cross_domain": 99.55, "health": health},
+                      "classes": len(CLASS_ORDER), "cross_domain": 99.55, "health": health},
             "classes": [{"name": c, "severity": CLASS_SEVERITY[c], "benign": c == "Benign"} for c in CLASS_ORDER]}
 
 
