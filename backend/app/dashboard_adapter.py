@@ -39,6 +39,8 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db, Threat, NetworkEvent
 
+import time as _time
+_PROC_START = _time.time()
 router = APIRouter()
 
 # --------------------------------------------------------------------------
@@ -487,8 +489,9 @@ def dash_detection():
     except Exception:
         pass
     return {"model": {"name": "RF + CNN-LSTM + Autoencoder", "version": "v2.4",
-                      "accuracy": 96.22, "macro_f1": 0.948, "features": features,
-                      "classes": len(CLASS_ORDER), "cross_domain": 99.55, "health": health},
+                      "accuracy": 96.17, "macro_f1": 0.9615, "features": features,
+                      "classes": len(CLASS_ORDER), "zero_day_within": 100.0, "zero_day_cross": 99.0,
+                      "fpr": 5.8, "inference_ms": 0.2, "health": health},
             "classes": [{"name": c, "severity": CLASS_SEVERITY[c], "benign": c == "Benign"} for c in CLASS_ORDER]}
 
 

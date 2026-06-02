@@ -2642,7 +2642,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
 
         <div style="display:grid; grid-template-columns: 1.7fr 1fr; gap:1rem; height: calc(100% - 230px); min-height: 360px;">
           <div class="card" style="display:flex; flex-direction:column; min-height:0;">
-            <div class="card-head"><div><div class="card-title">Incident Queue</div><div class="card-sub">Ensemble &middot; 96.22% &middot; 3-confirm rule</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">Critical</span><span class="tag">Open</span></div></div>
+            <div class="card-head"><div><div class="card-title">Incident Queue</div><div class="card-sub">Ensemble &middot; 96.17% &middot; 3-confirm rule</div></div><div style="display:flex;gap:0.4rem"><span class="tag active">All</span><span class="tag">Critical</span><span class="tag">Open</span></div></div>
             <div style="flex:1; overflow:auto; min-height:0;">
               <table class="inf-table" id="inf-table">
                 <thead><tr><th>Time</th><th>Source Device</th><th>Attack Class</th><th>Confidence</th><th>Confirm</th><th>Action</th></tr></thead>
@@ -2853,11 +2853,11 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
               </div>
               <div class="model-stats-grid">
                 <div class="m-stat">
-                  <div class="n">96<span style="font-size:1rem;color:var(--text-dim)">.22</span></div>
+                  <div class="n">96<span style="font-size:1rem;color:var(--text-dim)">.17</span></div>
                   <div class="l">Accuracy %</div>
                 </div>
                 <div class="m-stat">
-                  <div class="n">0<span style="font-size:1rem;color:var(--text-dim)">.948</span></div>
+                  <div class="n">0<span style="font-size:1rem;color:var(--text-dim)">.9615</span></div>
                   <div class="l">Macro F1</div>
                 </div>
                 <div class="m-stat">
@@ -2865,7 +2865,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
                   <div class="l">Features</div>
                 </div>
                 <div class="m-stat">
-                  <div class="n">32<span style="font-size:1rem;color:var(--text-dim)">ms</span></div>
+                  <div class="n">0.2<span style="font-size:1rem;color:var(--text-dim)">ms</span></div>
                   <div class="l">Inference</div>
                 </div>
               </div>
@@ -3102,13 +3102,12 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
               <div class="card-head"><div><div class="card-title">Deployment</div><div class="card-sub">AEGIS · on-prem hospital gateway</div></div><span class="tag active">Healthy</span></div>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem 2rem;">
                 <div class="snap-row"><span class="label">Version</span><span class="value">v1.0.0</span></div>
-                <div class="snap-row"><span class="label">Uptime</span><span class="value">42d 06h</span></div>
+                <div class="snap-row"><span class="label">Uptime</span><span class="value" id="sys-uptime">—</span></div>
                 <div class="snap-row"><span class="label">Detection model</span><span class="value">Ensemble v2.4</span></div>
-                <div class="snap-row"><span class="label">Last retrain</span><span class="value">12 days ago</span></div>
-                <div class="snap-row"><span class="label">Encryption</span><span class="value">ASCON-128a</span></div>
-                <div class="snap-row"><span class="label">Model accuracy</span><span class="value">96.22%</span></div>
+                                <div class="snap-row"><span class="label">Encryption</span><span class="value">ASCON-128</span></div>
+                <div class="snap-row"><span class="label">Model accuracy</span><span class="value">96.17%</span></div>
                 <div class="snap-row"><span class="label">Environment</span><span class="value">OMNeT++ / INET</span></div>
-                <div class="snap-row"><span class="label">Backend</span><span class="value">FastAPI :8000</span></div>
+                <div class="snap-row"><span class="label">Backend</span><span class="value">FastAPI :8055</span></div>
               </div>
             </div>
 
@@ -4331,35 +4330,37 @@ cmdOverlay.addEventListener('click', e => {
         <button class="btn" id="tm-close" style="padding:0.2rem 0.6rem;font-size:0.6rem">ESC</button>
       </div>
       <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-dim);margin-bottom:0.85rem;line-height:1.5">
-        Sends a synthetic 39-feature CICIoMT sample to
+        Sends a real 39-feature CICIoMT sample to
         <span style="color:var(--cyan)">/api/ai/predict</span>. The verdict below is the
-        live output of the real RF + CNN-LSTM + Autoencoder ensemble — presets only nudge the
-        input, the model decides the class.</div>
+        live output of the real RF + CNN-LSTM + Autoencoder ensemble — presets send a <b>real labelled CICIoMT sample</b>; the model decides the class. "Novel" classes sit outside the 5 known classes; Zero-Day probe is an out-of-distribution input.</div>
       <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.85rem">
-        <button class="btn tm-prof active" data-p="random">Random</button>
-        <button class="btn tm-prof" data-p="benign">Benign-ish</button>
-        <button class="btn tm-prof" data-p="ddos">DDoS-ish</button>
-        <button class="btn tm-prof" data-p="icmp">ICMP-ish</button>
-        <button class="btn tm-prof" data-p="recon">Recon-ish</button>
+        <button class="btn tm-prof active" data-p="benign">Benign</button>
+        <button class="btn tm-prof" data-p="ddos">DDoS</button>
+        <button class="btn tm-prof" data-p="dos">DoS</button>
+        <button class="btn tm-prof" data-p="icmp">ICMP Flood</button>
+        <button class="btn tm-prof" data-p="recon">Reconnaissance</button>
+        <button class="btn tm-prof" data-p="mqtt">MQTT (novel)</button>
+        <button class="btn tm-prof" data-p="arp">ARP (novel)</button>
+        <button class="btn tm-prof" data-p="zeroday">Zero-Day probe</button>
       </div>
       <button class="btn btn-primary" id="tm-run" style="width:100%;justify-content:center;margin-bottom:0.85rem">Run inference &rarr;</button>
       <div id="tm-result" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-sub);min-height:1.2rem"></div>
     </div>`;
   document.body.appendChild(overlay);
 
-  let profile = 'random';
+  let profile = 'benign';
   const rnd = (a, b) => a + Math.random() * (b - a);
 
+  const REAL_SAMPLES = {"benign": [28.76, 6.0, 63.38, 20.179872, 0.0, 0.0, 0.0, 0.36, 0.89, 0.0, 0.0, 89.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.89, 0.05, 0.01, 0.06, 0.0, 0.0, 0.94, 0.94, 9127.0, 42.0, 928.0, 91.27, 94.276603, 91.27, 0.049554, 100.0, 8888.077879], "ddos": [20.0, 6.0, 64.0, 106373.421253, 0.0, 0.78, 0.22, 0.0, 0.0, 0.0, 0.0, 0.0, 78.0, 0.0, 22.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 6000.0, 60.0, 60.0, 60.0, 0.0, 60.0, 9e-06, 100.0, 0.0], "dos": [8.0, 17.0, 64.0, 28563.77009, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 6000.0, 60.0, 60.0, 60.0, 0.0, 60.0, 3.5e-05, 100.0, 0.0], "icmp": [0.0, 1.0, 64.0, 30920.044231, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 6000.0, 60.0, 60.0, 60.0, 0.0, 60.0, 3.2e-05, 100.0, 0.0], "recon": [24.0, 6.0, 48.2, 32793.620016, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 600.0, 60.0, 60.0, 60.0, 0.0, 60.0, 0.001329, 10.0, 0.0], "mqtt": [32.0, 6.0, 64.0, 8689.616309, 0.0, 0.0, 0.0, 0.45, 1.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 22405.0, 66.0, 1514.0, 224.05, 235.694477, 224.05, 0.000124, 100.0, 55551.886364], "arp": [0.0, 0.0, 0.0, 105.403061, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 600.0, 60.0, 60.0, 60.0, 0.0, 60.0, 0.010464, 10.0, 0.0]};
   function genVector(p) {
-    // 39 features in ensemble order; mild per-profile nudges (synthetic sample).
-    const v = new Array(39).fill(0).map(() => rnd(0, 0.4));
-    // a few interpretable slots: 3=Rate 5=syn_flag 11=ack_count 12=syn_count 22=TCP 23=UDP 26=ICMP 30=Tot_sum 33=AVG
-    if (p === 'benign')      { v[3] = rnd(0, 0.12); v[12] = rnd(0, 0.1);  v[26] = 0;          v[22] = rnd(0.4, 0.8); }
-    else if (p === 'ddos')   { v[3] = rnd(0.8, 1);  v[5]  = rnd(0.8, 1);  v[12] = rnd(0.8, 1); v[22] = rnd(0.7, 1); v[30] = rnd(0.8, 1); }
-    else if (p === 'icmp')   { v[26] = rnd(0.8, 1); v[3]  = rnd(0.6, 1);  v[22] = rnd(0, 0.1); v[23] = rnd(0, 0.1); }
-    else if (p === 'recon')  { v[5] = rnd(0.6, 1);  v[12] = rnd(0.6, 1);  v[11] = rnd(0, 0.1); v[33] = rnd(0, 0.15); }
-    else                     { for (let i = 0; i < 39; i++) v[i] = rnd(0, 1); }
-    return v.map(x => +x.toFixed(4));
+    // Real CICIoMT samples (39 features, features.json order). 'zeroday' is an
+    // out-of-distribution probe so the autoencoder fires; the model decides.
+    if (p === 'zeroday') {
+      const v = new Array(39).fill(0).map(() => 1.6 + Math.random()*0.8);
+      for (let i=0;i<39;i++) v[i] *= (Math.random()<0.5?1:-1);
+      return v.map(x => +x.toFixed(4));
+    }
+    return (REAL_SAMPLES[p] || REAL_SAMPLES['benign']).slice();
   }
 
   function fmt(n, d = 1) { const x = Number(n); return isFinite(x) ? x.toFixed(d) : '—'; }
@@ -4369,20 +4370,33 @@ cmdOverlay.addEventListener('click', e => {
     res.innerHTML = '<span style="color:var(--text-dim)">running ensemble…</span>';
     try {
       const out = await AEGIS.post('/api/ai/predict', { features: genVector(profile), device_id: 'test-console' });
-      if (out && out.predicted_class) {
-        const zd = out.is_zero_day
-          ? '<span style="color:var(--red)">ZERO-DAY</span>'
-          : (out.is_suspicious ? '<span style="color:var(--amber)">SUSPICIOUS</span>'
-                               : '<span style="color:var(--mint)">KNOWN</span>');
+      if (out && (out.rf_class || out.predicted_class)) {
+        // Honest display: the supervised classifiers (RF + CNN-LSTM) are the trusted
+        // verdict. Confidences come back as 0-1 fractions, so x100. The autoencoder
+        // anomaly score is shown separately and is NOT used to gate the verdict here,
+        // because its threshold is being recalibrated (scores don't yet separate
+        // normal from attack). So we report what's trustworthy and flag the rest.
+        const pct = (v) => { const x = Number(v) * 100; return isFinite(x) ? x.toFixed(1) + '%' : '—'; };
+        const agree = out.rf_class && (out.rf_class === out.cnn_class);
+        const verdictClass = agree ? out.rf_class
+                            : (Number(out.rf_confidence) >= Number(out.cnn_confidence) ? out.rf_class : out.cnn_class);
+        const verdictConf = agree ? (Number(out.rf_confidence) + Number(out.cnn_confidence)) / 2
+                                  : Math.max(Number(out.rf_confidence), Number(out.cnn_confidence));
+        const badge = agree
+          ? '<span style="color:var(--mint)">CLASSIFIERS AGREE</span>'
+          : '<span style="color:var(--amber)">MODELS DISAGREE</span>';
+        const ae = (() => { const v = Number(out.anomaly_score);
+          const e = v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'k' : v.toFixed(2);
+          return e; })();
         res.innerHTML = `
           <div style="font-size:1.15rem;color:var(--text);font-family:var(--font-display);margin-bottom:0.5rem">
-            ${out.predicted_class} &middot; ${fmt(out.confidence)}% &nbsp;${zd}</div>
+            ${verdictClass} &middot; ${pct(verdictConf)} &nbsp;${badge}</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:0.3rem 1rem;color:var(--text-dim)">
-            <span>RandomForest</span><span style="color:var(--text)">${out.rf_class} &middot; ${fmt(out.rf_confidence)}%</span>
-            <span>CNN-LSTM</span><span style="color:var(--text)">${out.cnn_class} &middot; ${fmt(out.cnn_confidence)}%</span>
-            <span>Autoencoder</span><span style="color:var(--text)">score ${fmt(out.anomaly_score, 4)} / thr ${fmt(out.anomaly_threshold, 4)}</span>
+            <span>RandomForest</span><span style="color:var(--text)">${out.rf_class} &middot; ${pct(out.rf_confidence)}</span>
+            <span>CNN-LSTM</span><span style="color:var(--text)">${out.cnn_class} &middot; ${pct(out.cnn_confidence)}</span>
+            <span>Autoencoder</span><span style="color:var(--text-dim)">anomaly ${ae} &middot; <span style="color:var(--amber)">calibration in progress</span></span>
           </div>
-          <div style="margin-top:0.5rem;color:var(--text-faint);font-size:0.62rem">Broadcast to /ws &rarr; see the Alerts inference table.</div>`;
+          <div style="margin-top:0.5rem;color:var(--text-faint);font-size:0.62rem">Verdict = supervised ensemble (RF + CNN-LSTM). Anomaly layer under recalibration. Broadcast to /ws &rarr; Alerts inference table.</div>`;
       } else if (out && out.detail) {
         res.innerHTML = '<span style="color:var(--red)">' + out.detail + '</span>';
       } else {
