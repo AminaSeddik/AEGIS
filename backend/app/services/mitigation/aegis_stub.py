@@ -3,8 +3,8 @@ from .mitigation import ThreatLevel
 
 class AegisSession:
     def __init__(self, device_id: int):
-        self.device_id        = device_id
-        self.last_threat      = ThreatLevel.LOW
+        self.device_id         = device_id
+        self.last_threat       = ThreatLevel.LOW
         self.notify_call_count = 0
 
     def notify_threat(self, level: ThreatLevel):

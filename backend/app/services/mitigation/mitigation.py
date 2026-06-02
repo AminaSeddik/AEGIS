@@ -1,4 +1,4 @@
-"""mitigation.py — Types, enums, and constants. Equivalent to mitigation.h"""
+"""mitigation.py — Types, enums, and constants."""
 from enum import IntEnum
 
 class AttackClass(IntEnum):

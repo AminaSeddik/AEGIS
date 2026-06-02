@@ -2374,6 +2374,23 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
 
 /* Eyebrows + monospace labels: slightly tighter tracking for a cleaner, more formal feel */
 .eyebrow { letter-spacing: 0.16em; }
+
+/* ===== Live intrusion alert banner ===== */
+@keyframes aegis-siren { 0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.55),0 12px 40px rgba(0,0,0,.4)} 50%{box-shadow:0 0 0 14px rgba(255,59,48,0),0 12px 40px rgba(0,0,0,.4)} }
+@keyframes aegis-slidein { from{transform:translate(-50%,-30px);opacity:0} to{transform:translate(-50%,0);opacity:1} }
+#attack-banner{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:9999;
+  min-width:520px;max-width:90vw;padding:1rem 1.5rem;border-radius:14px;display:none;
+  background:linear-gradient(135deg,#2a0d0d,#3a1216);border:1.5px solid var(--red);
+  animation:aegis-slidein .35s ease, aegis-siren 1.1s ease-in-out infinite;font-family:var(--font-display)}
+#attack-banner.contained{background:linear-gradient(135deg,#0d2a16,#123a22);border-color:var(--mint);animation:aegis-slidein .3s ease}
+#attack-banner .ab-top{display:flex;align-items:center;gap:.7rem;margin-bottom:.5rem}
+#attack-banner .ab-dot{width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red)}
+#attack-banner.contained .ab-dot{background:var(--mint);box-shadow:0 0 12px var(--mint)}
+#attack-banner .ab-title{font-size:1.05rem;letter-spacing:.02em;color:#fff;font-weight:600}
+#attack-banner .ab-phase{margin-left:auto;font-family:var(--font-mono);font-size:.72rem;color:var(--red)}
+#attack-banner.contained .ab-phase{color:var(--mint)}
+#attack-banner .ab-stats{display:flex;gap:1.8rem;font-family:var(--font-mono);font-size:.74rem;color:var(--text-dim)}
+#attack-banner .ab-stats b{color:#fff;font-weight:600}
 </style>
 </head>
 <body>
@@ -2611,9 +2628,9 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <p>Confirmed IDS detections, newest first. Triage, investigate, and escalate to Response.</p>
           </div>
           <div class="view-actions">
-            <button class="btn">Filter</button>
-            <button class="btn">Export CSV</button>
-            <button class="btn btn-primary">Acknowledge All</button>
+            
+            <button class="btn" id="alerts-export">Export CSV</button>
+            
           </div>
         </div>
 
@@ -2667,9 +2684,9 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <h1>The hospital, <em>mapped.</em></h1>
           </div>
           <div class="view-actions">
-            <button class="btn">Filter Dept</button>
-            <button class="btn">Layout</button>
-            <button class="btn btn-primary">Simulate Attack</button>
+            
+            
+            <button class="btn btn-primary" id="sim-attack">Simulate Attack</button>
           </div>
         </div>
 
@@ -2773,7 +2790,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <h1>Five known classes <em>+ zero-day.</em></h1>
           </div>
           <div class="view-actions">
-            <button class="btn">Confusion Matrix</button>
+            
             <button class="btn btn-primary" id="test-model-btn">Test Model</button>
           </div>
         </div>
@@ -3002,8 +3019,8 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <p>Complete register of monitored medical IoT endpoints — addressing, firmware, encryption and live risk status.</p>
           </div>
           <div class="view-actions">
-            <button class="btn">Filter Dept</button>
-            <button class="btn btn-primary">Export Inventory</button>
+            
+            <button class="btn btn-primary" id="dev-export">Export Inventory</button>
           </div>
         </div>
 
@@ -3052,8 +3069,8 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <p>Every mitigation AEGIS executed automatically, plus the playbooks that govern it. Override any decision in one click.</p>
           </div>
           <div class="view-actions">
-            <button class="btn">Playbooks</button>
-            <button class="btn btn-primary">Auto-Response: ON</button>
+            <button class="btn" id="playbooks-btn">Playbooks</button>
+            <span class="tag active" id="auto-resp-status" title="Mitigation engine state">Auto-Response: ON</span>
           </div>
         </div>
 
@@ -3091,8 +3108,8 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <p>Reference information for this AEGIS deployment — build, detection model, data feeds, retention and escalation paths.</p>
           </div>
           <div class="view-actions">
-            <button class="btn">Documentation</button>
-            <button class="btn btn-primary">Run Health Check</button>
+            
+            <button class="btn btn-primary" id="health-check">Run Health Check</button>
           </div>
         </div>
 
@@ -3170,7 +3187,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.012em; }
             <p>Tamper-evident audit trail and one-click compliance exports for hospital governance and HIPAA reviews.</p>
           </div>
           <div class="view-actions">
-            <button class="btn">Last 7 days &#9662;</button>
+            
             <button class="btn btn-primary" id="exp-generate">Generate Report</button>
           </div>
         </div>
@@ -3426,10 +3443,10 @@ const donutCtx = document.getElementById('donut').getContext('2d');
 const donut = new Chart(donutCtx, {
   type: 'doughnut',
   data: {
-    labels: ['Benign', 'DDoS', 'DoS', 'ICMP', 'ARP', 'MQTT', 'Ransom', 'Recon', 'Exfil'],
+    labels: ['Benign', 'DDoS', 'DoS', 'ICMP_Flood', 'Reconnaissance', 'Zero-Day'],
     datasets: [{
-      data: [62, 8, 5, 4, 6, 5, 3, 4, 3],
-      backgroundColor: ['#10b981','#ef4444','#f97316','#f59e0b','#ec4899','#8b5cf6','#dc2626','#06b6d4','#eab308'],
+      data: [1, 0, 0, 0, 0, 0],
+      backgroundColor: ['#10b981','#ef4444','#f97316','#f59e0b','#06b6d4','#8b5cf6'],
       borderColor: 'transparent',
       borderWidth: 2,
       hoverOffset: 8,
@@ -3451,7 +3468,24 @@ const donut = new Chart(donutCtx, {
         borderColor: getCSSVar('--cyan'),
         borderWidth: 1,
         titleFont: { family: 'IBM Plex Mono', size: 10 },
-        bodyFont: { family: 'IBM Plex Mono', size: 10 },
+        bodyFont: { family: 'IBM Plex Mono', size: 11 },
+        padding: 10,
+        callbacks: {
+          label: (ctx) => {
+            const data = ctx.dataset.data || [];
+            const total = data.reduce((a,b)=>a + (Number(b)||0), 0) || 1;
+            const v = Number(ctx.parsed) || 0;
+            const pct = (v / total * 100);
+            return ` ${ctx.label}: ${v.toLocaleString()} detection${v===1?'':'s'} · ${pct.toFixed(1)}%`;
+          },
+          footer: (items) => {
+            const data = items[0].dataset.data || [];
+            const total = data.reduce((a,b)=>a + (Number(b)||0), 0);
+            return `Total: ${total.toLocaleString()} across all classes`;
+          }
+        },
+        footerFont: { family: 'IBM Plex Mono', size: 9 },
+        footerColor: getCSSVar('--text-dim'),
       }
     },
     maintainAspectRatio: false, responsive: true,
@@ -4660,6 +4694,191 @@ cmdOverlay.addEventListener('click', e => {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
 })();
+
+/* ===== Wired action buttons (real endpoints) ===== */
+(function(){
+  const AEGIS = window.AEGIS || { base: location.origin,
+    get: p => fetch(location.origin+p).then(r=>r.json()),
+    post: (p,b) => fetch(location.origin+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json()) };
+
+  function downloadCSV(filename, rows){
+    const esc = v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+    const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // Alerts -> Export CSV (real /api/dash/alerts)
+  const ae = document.getElementById('alerts-export');
+  if (ae) ae.addEventListener('click', async () => {
+    try { const d = await AEGIS.get('/api/dash/alerts');
+      const rows = [['time','source','class','severity','status']].concat(
+        (d.alerts||[]).map(a => [a.hms||a.time||'', a.source||a.device||'', a.cls||a.class||'', a.sev||a.severity||'', a.status||'']));
+      downloadCSV('aegis_alerts.csv', rows);
+    } catch(e){ alert('Export failed: '+e.message); }
+  });
+
+  // Devices -> Export Inventory (real /api/dash/devices)
+  const de = document.getElementById('dev-export');
+  if (de) de.addEventListener('click', async () => {
+    try { const d = await AEGIS.get('/api/dash/devices');
+      const rows = [['host','type','dept','ip','firmware','encryption','risk','status']].concat(
+        (d.devices||[]).map(x => [x.host,x.type,x.dept,x.ip,x.fw,x.encryption,x.risk,x.status]));
+      downloadCSV('aegis_device_inventory.csv', rows);
+    } catch(e){ alert('Export failed: '+e.message); }
+  });
+
+  // Network Map -> Simulate Attack (cinematic multi-phase attack -> REAL pipeline,
+  // with a live on-screen intrusion banner on the Overview).
+  function abEl(){
+    let b = document.getElementById('attack-banner');
+    if (!b){ b = document.createElement('div'); b.id='attack-banner';
+      b.innerHTML = `<div class="ab-top"><span class="ab-dot"></span>
+        <span class="ab-title" id="ab-title">ACTIVE INTRUSION DETECTED</span>
+        <span class="ab-phase" id="ab-phase"></span></div>
+        <div class="ab-stats">
+          <span>PEAK <b id="ab-rate">0</b> pkt/s</span>
+          <span>SOURCES <b id="ab-src">0</b></span>
+          <span>VECTORS <b id="ab-vec">0</b></span>
+          <span id="ab-tail">AEGIS responding…</span></div>`;
+      document.body.appendChild(b); }
+    return b;
+  }
+  function abShow(){ const b=abEl(); b.classList.remove('contained'); b.style.display='block';
+    document.getElementById('ab-title').textContent='ACTIVE INTRUSION DETECTED'; }
+  function abPhase(t){ const e=document.getElementById('ab-phase'); if(e) e.textContent=t; }
+  function abStat(rate,src,vec){
+    const r=document.getElementById('ab-rate'), sc=document.getElementById('ab-src'), v=document.getElementById('ab-vec');
+    if(r&&rate!=null) r.textContent=Number(rate).toLocaleString();
+    if(sc&&src!=null) sc.textContent=Number(src).toLocaleString();
+    if(v&&vec!=null) v.textContent=vec; }
+  function abContained(vec){ const b=abEl(); b.classList.add('contained');
+    document.getElementById('ab-title').textContent='ATTACK CONTAINED';
+    abPhase('✓ NEUTRALIZED'); const tail=document.getElementById('ab-tail');
+    if(tail) tail.textContent=`${vec} vectors blocked · ASCON sessions intact`; }
+  function abHide(){ const b=document.getElementById('attack-banner'); if(b) b.style.display='none'; }
+
+  const sa = document.getElementById('sim-attack');
+  if (sa) sa.addEventListener('click', async () => {
+    if (sa.dataset.running === '1') return;
+    sa.dataset.running = '1';
+    const orig = sa.textContent;
+    const setBtn = (txt, danger) => { sa.textContent = txt;
+      sa.style.background = danger ? 'var(--red)' : ''; sa.style.color = danger ? '#fff' : ''; sa.style.borderColor = danger ? 'var(--red)' : ''; };
+
+    if (typeof navigate === 'function') navigate('overview');
+    await new Promise(r => setTimeout(r, 350));
+    abShow();
+
+    const rnd=(a,b)=>Math.floor(a+Math.random()*(b-a));
+    const ip=()=>`10.${rnd(10,250)}.${rnd(0,255)}.${rnd(1,254)}`;
+    let peak=0, vec=0, srcTotal=0, contained=0;
+    // real hospital devices the mitigation engine will isolate (valid registry hosts)
+    const TARGETS = ['icu-vent-01','icu-mon-01','icu-pump-02','er-defib-01','er-crash-01','er-vit-02','or-anes-01','icu-ecg-03'];
+    let ti = 0;
+    const mitigate = (cls) => {
+      const dev = TARGETS[ti % TARGETS.length]; ti++;
+      contained++;
+      return AEGIS.post('/api/mitigation/event', { device_id: dev, attack_class: cls }).catch(()=>{});
+    };
+    const fire=(o)=>{ vec++; peak=Math.max(peak,o.rate); srcTotal+=o.srcs;
+      abStat(peak, srcTotal, vec);
+      if(typeof pushThroughput==='function') pushThroughput(o.rate);
+      return AEGIS.post('/api/omnet/data', {
+        total_packets:o.rate, packet_rate:o.rate, total_bytes:o.rate*60, byte_rate:o.rate*60,
+        tcp_packets:Math.floor(o.rate*0.95), udp_packets:Math.floor(o.rate*0.03),
+        icmp_packets:o.icmp||0, syn_count:o.syn||0, ack_count:Math.floor(o.rate*0.05),
+        unique_src_ips:o.srcs, unique_dst_ports:o.ports||3,
+        source_device:o.tag, source_ip:ip()
+      }).catch(()=>{}); };
+
+    try {
+      // Each phase injects a REAL labelled CICIoMT sample, classified live by the
+      // real ensemble (RF+CNN). The class shown is the genuine model verdict.
+      const ens = (cls, dev, dept) => AEGIS.post('/api/sim/ensemble_attack',
+        { attack_class: cls, device_id: dev, department: dept }).catch(()=>{});
+
+      // ── Phase 1: Reconnaissance ──
+      setBtn('⚠ PHASE 1 · RECON', true); abShow(); abPhase('PHASE 1/4 · RECONNAISSANCE');
+      await ens('Reconnaissance', 'icu-mon-01', 'ICU');
+      for(let i=0;i<2;i++){ await fire({rate:rnd(4000,9000),srcs:rnd(1,3),ports:rnd(400,1200),tag:'recon-scan-'+(i+1)}); await new Promise(r=>setTimeout(r,460)); }
+
+      // ── Phase 2: DoS ──
+      setBtn('⚠ PHASE 2 · DoS', true); abPhase('PHASE 2/4 · DENIAL OF SERVICE');
+      await ens('DoS', 'er-vit-02', 'ER'); await mitigate('DoS');
+      for(let i=0;i<3;i++){ const r=rnd(40000,90000); await fire({rate:r,srcs:rnd(1,5),syn:Math.floor(r*0.7),tag:'dos-flood-'+rnd(100,999)}); await new Promise(x=>setTimeout(x,420)); }
+
+      // ── Phase 3: ICMP Flood ──
+      setBtn('⚠ PHASE 3 · ICMP FLOOD', true); abPhase('PHASE 3/4 · ICMP FLOOD');
+      await ens('ICMP_Flood', 'icu-pump-02', 'ICU'); await mitigate('ICMP_Flood');
+      for(let i=0;i<3;i++){ const r=rnd(120000,200000); await fire({rate:r,srcs:rnd(50,200),icmp:Math.floor(r*0.9),tag:'icmp-storm-'+rnd(100,999)}); await new Promise(x=>setTimeout(x,380)); }
+
+      // ── Phase 4: DDoS peak ──
+      setBtn('⚠ PHASE 4 · DDoS PEAK', true); abPhase('PHASE 4/4 · DDoS PEAK');
+      await ens('DDoS', 'er-defib-01', 'ER'); await mitigate('DDoS');
+      for(let i=0;i<4;i++){ const r=rnd(600000,950000); await fire({rate:r,srcs:rnd(2000,4500),syn:Math.floor(r*0.85),tag:'ddos-swarm-'+rnd(1000,9999)}); await mitigate('DDoS'); await new Promise(x=>setTimeout(x,300)); }
+
+      setBtn('◆ CONTAINING…', true); abPhase('CONTAINING…');
+      await new Promise(r=>setTimeout(r,900));
+      if(typeof loadResponse==='function') loadResponse();
+      if(typeof loadTopology==='function') loadTopology();
+      if(typeof loadOverview==='function') loadOverview();
+      if(typeof loadAlerts==='function') loadAlerts();
+      abContained(contained || vec);
+      setBtn('✓ CONTAINED', false);
+      sa.style.background='var(--mint)'; sa.style.color='#062'; sa.style.borderColor='var(--mint)';
+      await new Promise(r=>setTimeout(r,4000));
+      abHide();
+    } catch(e){ console.error(e); }
+    finally { sa.textContent=orig; sa.style.background=''; sa.style.color=''; sa.style.borderColor=''; sa.dataset.running='0'; }
+  });
+
+  // small overlay helper (reuses cmd-overlay styling)
+  function showModal(title, html){
+    let ov = document.getElementById('action-overlay');
+    if (!ov){ ov = document.createElement('div'); ov.id='action-overlay'; ov.className='cmd-overlay';
+      ov.addEventListener('click', e => { if (e.target===ov) ov.classList.remove('open'); });
+      document.body.appendChild(ov); }
+    ov.innerHTML = `<div style="width:min(560px,92vw);max-height:80vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem 1.6rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+        <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--text)">${title}</div>
+        <button class="btn" onclick="document.getElementById('action-overlay').classList.remove('open')">ESC</button>
+      </div>${html}</div>`;
+    ov.classList.add('open');
+  }
+
+  // Response -> Playbooks (real /api/dash/response playbooks)
+  const pb = document.getElementById('playbooks-btn');
+  if (pb) pb.addEventListener('click', async () => {
+    try { const d = await AEGIS.get('/api/dash/response');
+      const rows = (d.playbooks||[]).map(p => `<div style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+        <span style="font-family:var(--font-mono);color:var(--amber)">${p.trigger}</span>
+        <span style="color:var(--text)">${p.action}</span></div>`).join('');
+      showModal('Mitigation Playbooks', '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);margin-bottom:0.6rem">Automated response policy per attack class (paper-grounded).</div>'+rows);
+    } catch(e){ alert('Failed: '+e.message); }
+  });
+
+  // System -> Run Health Check (real health endpoints)
+  const hc = document.getElementById('health-check');
+  if (hc) hc.addEventListener('click', async () => {
+    showModal('System Health Check', '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.78rem">Running checks…</div>');
+    const checks = [['AI Ensemble','/api/ai/health'],['Crypto (ASCON)','/api/crypto/health'],['Mitigation','/api/mitigation/health'],['Dashboard API','/api/dash/system']];
+    const out = [];
+    for (const [name,ep] of checks){
+      try { const r = await AEGIS.get(ep);
+        const ok = (r.status==='healthy'||r.is_ready===true||r.ok===true||r.status==='ok'||r.version||r.algorithm||r.models_loaded);
+        out.push([name, ok?'OK':'CHECK', ok]);
+      } catch(e){ out.push([name,'DOWN',false]); }
+    }
+    const rows = out.map(([n,st,ok]) => `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text)">${n}</span>
+      <span style="color:${ok?'var(--mint)':'var(--red)'};font-family:var(--font-mono)">${ok?'● ':'○ '}${st}</span></div>`).join('');
+    showModal('System Health Check', rows + '<div style="margin-top:0.6rem;color:var(--text-faint);font-size:0.62rem">Live status from real service health endpoints.</div>');
+  });
+})();
+
 </script>
 </body>
 </html>

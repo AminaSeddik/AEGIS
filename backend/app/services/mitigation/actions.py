@@ -1,6 +1,4 @@
-"""actions.py — Action handlers.
-CHANGE 3: mitigation_unblock_device() — operator override
-CHANGE 4: HIPAA-compliant CSV audit log"""
+"""actions.py — Action handlers. Operator unblock + HIPAA CSV audit log."""
 import time, csv, os
 from datetime import datetime
 from .mitigation import (

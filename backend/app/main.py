@@ -655,3 +655,55 @@ async def mitigation_recent(limit: int = 50):
 # --- AEGIS dashboard adapter ---
 from app.dashboard_adapter import router as dashboard_router
 app.include_router(dashboard_router)
+
+
+# ── Real-ensemble attack simulation (the real thing) ──────────────────────────
+_SIM_SAMPLES = {
+  "DDoS": [20.0,6.0,64.0,106373.421253,0.0,0.78,0.22,0.0,0.0,0.0,0.0,0.0,78.0,0.0,22.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,6000.0,60.0,60.0,60.0,0.0,60.0,9e-06,100.0,0.0],
+  "DoS": [8.0,17.0,64.0,28563.77009,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,6000.0,60.0,60.0,60.0,0.0,60.0,3.5e-05,100.0,0.0],
+  "ICMP_Flood": [0.0,1.0,64.0,30920.044231,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,1.0,1.0,6000.0,60.0,60.0,60.0,0.0,60.0,3.2e-05,100.0,0.0],
+  "Reconnaissance": [24.0,6.0,48.2,32793.620016,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,600.0,60.0,60.0,60.0,0.0,60.0,0.001329,10.0,0.0],
+}
+
+class SimAttackRequest(BaseModel):
+    attack_class: str = Field(...)
+    device_id: Optional[str] = None
+    device_ip: Optional[str] = None
+    department: Optional[str] = None
+
+@app.post("/api/sim/ensemble_attack")
+async def sim_ensemble_attack(req: SimAttackRequest, db: Session = Depends(get_db)):
+    if not ensemble.is_ready:
+        raise HTTPException(status_code=503, detail="ensemble not ready")
+    sample = _SIM_SAMPLES.get(req.attack_class)
+    if sample is None:
+        raise HTTPException(status_code=400, detail=f"no sample for {req.attack_class}")
+    out = ensemble.predict(sample)
+    rf, cnn = out.get("rf_class"), out.get("cnn_class")
+    if rf and rf == cnn:
+        cls = rf; conf = (float(out["rf_confidence"]) + float(out["cnn_confidence"])) / 2.0
+    else:
+        if float(out.get("rf_confidence",0)) >= float(out.get("cnn_confidence",0)):
+            cls, conf = rf, float(out.get("rf_confidence",0))
+        else:
+            cls, conf = cnn, float(out.get("cnn_confidence",0))
+    conf_pct = round(conf * 100, 1)
+    sev = "critical" if cls in ("DDoS","DoS") else ("high" if cls in ("ICMP_Flood","Reconnaissance") else "medium")
+    threat = Threat(
+        threat_type=cls, severity=sev, confidence=conf_pct,
+        device_id=req.device_id or "sim-device", device_name=req.device_id or "Sim Device",
+        device_ip=req.device_ip or "10.0.0.0", department=req.department or "ICU",
+        status="active",
+        description=f"{cls} classified by real ensemble (RF+CNN) at {conf_pct:.1f}% on labelled CICIoMT sample",
+    )
+    db.add(threat); db.commit()
+    await manager.broadcast_threat({
+        "threat_type": cls, "severity": sev, "confidence": conf_pct,
+        "device_id": threat.device_id, "device_name": threat.device_name,
+        "device_ip": threat.device_ip, "department": threat.department,
+    })
+    return {"classified_as": cls, "confidence": conf_pct,
+            "rf_class": rf, "rf_confidence": round(float(out.get("rf_confidence",0))*100,1),
+            "cnn_class": cnn, "cnn_confidence": round(float(out.get("cnn_confidence",0))*100,1),
+            "real_sample": True}
+

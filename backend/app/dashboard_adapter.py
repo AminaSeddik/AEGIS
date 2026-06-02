@@ -278,26 +278,54 @@ def _blocked_hosts() -> set[str]:
 
 
 def _mitigation_recent(limit=12) -> list[dict]:
+    """Real action log from mitigation_audit.log, mapped to registry hostnames."""
+    import os, csv as _csv
+    host_by_hash = {}
     try:
-        from app.services.mitigation_bridge import mitigation
-        notes = mitigation.get_recent_notifications(limit) or []
-        out = []
-        for n in notes:
-            n = n if isinstance(n, dict) else {}
-            cls = norm_class(n.get("attack_class") or n.get("attack") or n.get("class"))
-            out.append({
-                "hms": _hms(n.get("timestamp") or datetime.now()),
-                "trigger": cls,
-                "target": str(n.get("device_id") or n.get("device") or "device"),
-                "action": PLAYBOOKS.get(cls, n.get("action", "Mitigated")),
-                "result": n.get("result", "Contained"),
-                "result_color": "mint" if cls == "Ransomware" else ("red" if cls in PLAYBOOKS else "amber"),
-                "mode": n.get("mode", "AUTO"),
-            })
-        return out
+        for d in REGISTRY:
+            host_by_hash[_device_id_to_int(d["host"])] = d["host"]
+    except Exception:
+        pass
+    ACTION_LABEL = {
+        "DEVICE_ISOLATE": "Isolate device",
+        "RATE_LIMIT": "Rate-limit + isolate source",
+        "SESSION_REKEY": "Rotate session key",
+        "LOG_ONLY": "Monitor + raise watch",
+        "BLOCK_SOURCE": "Block source",
+    }
+    candidates = ["mitigation_audit.log",
+                  os.path.join(os.path.dirname(__file__), "..", "..", "mitigation_audit.log"),
+                  os.path.expanduser("~/default_workspace/AEGIS/backend/mitigation_audit.log")]
+    path = next((p for p in candidates if os.path.exists(p)), None)
+    if not path:
+        return []
+    rows = []
+    try:
+        with open(path) as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) < 5 or parts[0] == "timestamp_iso8601":
+                    continue
+                rows.append(parts)
     except Exception:
         return []
-
+    rows = rows[-limit:][::-1]
+    out = []
+    for ts, devid, cls, action, outcome in rows:
+        try:
+            did = int(devid); host = host_by_hash.get(did, f"device-{devid}")
+        except Exception:
+            host = str(devid)
+        hms = ts.split("T")[-1] if "T" in ts else ts
+        is_isolate = "ISOLATE" in action.upper()
+        out.append({
+            "hms": hms, "trigger": cls, "target": host,
+            "action": ACTION_LABEL.get(action, action.replace("_", " ").title()),
+            "result": "Contained" if is_isolate else "Logged",
+            "result_color": "red" if is_isolate else "amber",
+            "mode": "AUTO",
+        })
+    return out
 
 def _audit_log_lines(limit=40) -> list[dict]:
     """Read the real mitigation_audit.log (newest first), parsed into fields."""

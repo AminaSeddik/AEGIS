@@ -1,5 +1,4 @@
-"""policy.py — Attack-to-action policy table.
-CHANGE 2: default-deny (Zero Trust) — unknown attack -> RATE_LIMIT"""
+"""policy.py — Attack-to-action policy table. Default-deny (Zero Trust)."""
 from .mitigation import AttackClass, MitigationAction
 
 POLICY_TABLE = {
