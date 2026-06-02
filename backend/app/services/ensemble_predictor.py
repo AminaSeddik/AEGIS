@@ -133,8 +133,10 @@ class EnsemblePredictor:
             cnn_class = str(self.label_encoder.inverse_transform([cnn_idx])[0])
             cnn_conf = float(cnn_proba.max())
 
-            x_recon = self.ae.predict(x_scaled, verbose=0)
-            anomaly_score = float(np.mean(np.square(x_scaled - x_recon)))
+            # Omar's fix: AE was trained on data clipped to [-10,10] AFTER scaling.
+            x_clipped = np.clip(x_scaled, -10, 10)
+            x_recon = self.ae.predict(x_clipped, verbose=0)
+            anomaly_score = float(np.mean(np.square(x_clipped - x_recon)))
             is_anomaly = anomaly_score > self.threshold
 
         classifiers_agree = rf_class == cnn_class

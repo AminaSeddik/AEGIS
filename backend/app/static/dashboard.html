@@ -3502,7 +3502,7 @@ const traffic = new Chart(tCtx, {
     labels: tData.map(() => ''),
     datasets: [
       {
-        label: 'IN',
+        label: 'Inbound',
         data: tData,
         borderColor: getCSSVar('--cyan'),
         backgroundColor: (ctx) => {
@@ -3514,7 +3514,7 @@ const traffic = new Chart(tCtx, {
         borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0,
       },
       {
-        label: 'OUT',
+        label: 'Outbound',
         data: tData.map(v => v * 0.6),
         borderColor: getCSSVar('--violet'),
         backgroundColor: (ctx) => {
@@ -3542,7 +3542,20 @@ const traffic = new Chart(tCtx, {
         position: 'top', align: 'end',
         labels: { color: getCSSVar('--text-sub'), font: { family: 'IBM Plex Mono', size: 9 }, boxWidth: 8, usePointStyle: true }
       },
-      tooltip: { backgroundColor: getCSSVar('--surface'), borderColor: getCSSVar('--cyan'), borderWidth: 1 }
+      tooltip: {
+        backgroundColor: getCSSVar('--surface'), borderColor: getCSSVar('--cyan'), borderWidth: 1,
+        titleFont: { family: 'IBM Plex Mono', size: 9 },
+        bodyFont: { family: 'IBM Plex Mono', size: 11 }, padding: 9,
+        callbacks: {
+          title: () => 'Traffic \u00b7 packets/sec',
+          label: (ctx) => {
+            const v = Number(ctx.parsed.y) || 0;
+            const dir = ctx.dataset.label;
+            const arrow = dir === 'Inbound' ? '\u2193' : '\u2191';
+            return ' ' + arrow + ' ' + dir + ': ' + v.toLocaleString() + ' pkt/s';
+          }
+        }
+      }
     }
   }
 });
@@ -4428,9 +4441,9 @@ cmdOverlay.addEventListener('click', e => {
           <div style="display:grid;grid-template-columns:auto 1fr;gap:0.3rem 1rem;color:var(--text-dim)">
             <span>RandomForest</span><span style="color:var(--text)">${out.rf_class} &middot; ${pct(out.rf_confidence)}</span>
             <span>CNN-LSTM</span><span style="color:var(--text)">${out.cnn_class} &middot; ${pct(out.cnn_confidence)}</span>
-            <span>Autoencoder</span><span style="color:var(--text-dim)">anomaly ${ae} &middot; <span style="color:var(--amber)">calibration in progress</span></span>
+            <span>Autoencoder</span><span style="color:var(--text)">anomaly ${ae} &middot; thr ${Number(out.anomaly_threshold).toFixed(2)} &middot; <span style="color:${Number(out.anomaly_score) > Number(out.anomaly_threshold) ? 'var(--red)' : 'var(--mint)'}">${Number(out.anomaly_score) > Number(out.anomaly_threshold) ? 'ANOMALY' : 'normal'}</span></span>
           </div>
-          <div style="margin-top:0.5rem;color:var(--text-faint);font-size:0.62rem">Verdict = supervised ensemble (RF + CNN-LSTM). Anomaly layer under recalibration. Broadcast to /ws &rarr; Alerts inference table.</div>`;
+          <div style="margin-top:0.5rem;color:var(--text-faint);font-size:0.62rem">Verdict = supervised ensemble (RF + CNN-LSTM). Anomaly layer calibrated (clip + threshold 0.48). Broadcast to /ws &rarr; Alerts inference table.</div>`;
       } else if (out && out.detail) {
         res.innerHTML = '<span style="color:var(--red)">' + out.detail + '</span>';
       } else {
