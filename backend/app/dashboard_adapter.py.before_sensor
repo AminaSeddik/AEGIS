@@ -34,7 +34,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -639,95 +638,3 @@ def dashboard(request: Request):
 
 # register the auth-protected read endpoints
 router.include_router(dash_protected)
-
-
-# ============================================================
-# AEGIS Sensor Bridge — Pi gateway forwards decrypted readings
-# ============================================================
-# Architecture: ESP32 -> AEGIS-AEAD encrypt -> MQTT -> Pi -> decrypt
-#               -> HTTP POST /api/aegis/sensor -> backend ring buffer
-#               -> WebSocket broadcast -> dashboard live panel
-#
-# This is the medical telemetry plane. It is intentionally separate
-# from the network IDS plane (/api/omnet/data + /predict) which
-# operates on network flow features, not sensor payloads.
-
-from collections import deque
-from threading import Lock
-
-# Ring buffer: last 200 readings across all devices
-_SENSOR_BUFFER_SIZE = 200
-_sensor_buffer = deque(maxlen=_SENSOR_BUFFER_SIZE)
-_sensor_lock   = Lock()
-
-# Per-device latest reading (for quick "current value" lookups)
-_sensor_latest: dict = {}
-
-
-class SensorReading(BaseModel):
-    """Decrypted reading forwarded by the Pi subscriber."""
-    device_id:    str           # 16-char hex (e.g. "78421ca2b5a40001")
-    patient_id:   int           # numeric (e.g. 1138)
-    department:   str           # "ICU" | "ER" | "Ward" | "OR"
-    priority:     str           # "CRITICAL" | "HIGH" | "NORMAL" | "LOW"
-    plaintext:    str           # the decrypted payload (e.g. "IR:107967")
-    timestamp_ms: int           # device-side timestamp (millis since boot)
-    nonce_hex:    Optional[str] = None   # for forensics / audit
-    tag_hex:      Optional[str] = None
-
-
-@router.post("/api/aegis/sensor")
-async def aegis_sensor_post(reading: SensorReading):
-    """
-    Receive one decrypted sensor reading from the Pi gateway.
-
-    The Pi calls this after a successful aegis_decrypt_packet() so the
-    backend can store and visualize the value. No auth on this route
-    because the Pi is a trusted LAN gateway, not a user-facing endpoint.
-    """
-    server_ts = datetime.now(timezone.utc).isoformat()
-    record = {
-        "device_id":    reading.device_id,
-        "patient_id":   reading.patient_id,
-        "department":   reading.department,
-        "priority":     reading.priority,
-        "plaintext":    reading.plaintext,
-        "device_ts_ms": reading.timestamp_ms,
-        "server_ts":    server_ts,
-        "nonce":        reading.nonce_hex,
-        "tag":          reading.tag_hex,
-    }
-
-    with _sensor_lock:
-        _sensor_buffer.append(record)
-        _sensor_latest[reading.device_id] = record
-
-    # Broadcast to dashboard /ws subscribers — live update, no polling needed
-    try:
-        from app.websocket.manager import manager
-        await manager.broadcast({
-            "event_type": "sensor_reading",
-            "timestamp":  server_ts,
-            **record,
-        })
-    except Exception as exc:
-        # Don't fail the POST if the WS broadcast hiccups
-        print(f"[aegis_sensor] WS broadcast failed: {exc}")
-
-    return {"status": "received", "buffer_size": len(_sensor_buffer)}
-
-
-@router.get("/api/aegis/sensor/recent")
-async def aegis_sensor_recent(limit: int = 20):
-    """Return the most recent N sensor readings across all devices."""
-    limit = max(1, min(int(limit), _SENSOR_BUFFER_SIZE))
-    with _sensor_lock:
-        items = list(_sensor_buffer)[-limit:]
-    return {"count": len(items), "readings": list(reversed(items))}
-
-
-@router.get("/api/aegis/sensor/devices")
-async def aegis_sensor_devices():
-    """Return the latest reading per device (one row per ESP32 node seen)."""
-    with _sensor_lock:
-        return {"devices": list(_sensor_latest.values())}

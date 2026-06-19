@@ -3547,12 +3547,10 @@ const traffic = new Chart(tCtx, {
         titleFont: { family: 'IBM Plex Mono', size: 9 },
         bodyFont: { family: 'IBM Plex Mono', size: 11 }, padding: 9,
         callbacks: {
-          title: () => 'Traffic \u00b7 packets/sec',
+          title: () => 'Traffic (packets/sec)',
           label: (ctx) => {
-            const v = Number(ctx.parsed.y) || 0;
-            const dir = ctx.dataset.label;
-            const arrow = dir === 'Inbound' ? '\u2193' : '\u2191';
-            return ' ' + arrow + ' ' + dir + ': ' + v.toLocaleString() + ' pkt/s';
+            const v = (ctx.raw != null ? ctx.raw : (ctx.parsed && ctx.parsed.y)) || 0;
+            return '  ' + ctx.dataset.label + ': ' + Math.round(v).toLocaleString() + ' pkt/s';
           }
         }
       }
